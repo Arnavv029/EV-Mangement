@@ -67,10 +67,3 @@ coverage/
 tmp/
 temp/
 
-# SOS Emergency Feature
- backend/core/views/emergency_views.py
- frotend/public/pages/emergency.html
-
-
- Refund Feature
- backend/core/utils/payment_processor.py
