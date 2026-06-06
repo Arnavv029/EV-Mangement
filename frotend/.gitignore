@@ -71,9 +71,6 @@ temp/
  backend/core/views/emergency_views.py
  frotend/public/pages/emergency.html
 
- Razorpay Payment Feature
- backend/core/views/payment_views.py
- backend/core/utils/razorpay_client.py
 
  Refund Feature
  backend/core/utils/payment_processor.py
