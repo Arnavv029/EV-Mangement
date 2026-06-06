@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>HapticEV — Emergency Help</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/style.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  .sos-banner{background:linear-gradient(135deg,#7f1d1d,#dc2626);color:#fff;border-radius:18px;padding:22px 28px;margin-bottom:24px;display:flex;align-items:center;gap:18px;box-shadow:0 8px 32px rgba(220,38,38,.35)}
+  .sos-icon{width:56px;height:56px;min-width:56px;border-radius:14px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:26px;}
+  .sos-banner h2{font-size:20px;margin-bottom:4px}
+  .sos-banner p{font-size:13px;opacity:.85;margin:0}
+  .emg-tabs{display:flex;gap:0;background:rgba(255,255,255,.55);border:1px solid var(--border);border-radius:999px;padding:5px;margin-bottom:28px;max-width:420px}
+  .emg-tab{flex:1;padding:11px 22px;border-radius:999px;font-weight:600;font-size:14px;text-align:center;cursor:pointer;transition:.2s;color:var(--text-2);border:none;background:none;}
+  .emg-tab.active{background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff;box-shadow:0 4px 14px rgba(220,38,38,.35)}
+  .emg-section{display:none}.emg-section.active{display:block}
+  #mech-map,#stn-map{height:420px;border-radius:16px;z-index:1;border:1px solid var(--border);margin-bottom:20px}
+  .leaflet-popup-content-wrapper{background:#1F2933;color:#fff;border-radius:10px;border:1px solid rgba(220,38,38,.4)}
+  .leaflet-popup-tip{background:#1F2933}
+  .leaflet-popup-content{margin:12px 16px}
+  .popup-title{font-weight:700;font-size:14px;color:#fca5a5;margin-bottom:4px}
+  .popup-addr{font-size:12px;color:rgba(255,255,255,.75);margin-bottom:4px}
+  .popup-phone{font-size:13px;font-weight:700;color:#fca5a5;margin-bottom:8px}
+  .popup-btn{display:inline-block;background:#dc2626;color:#fff;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none;cursor:pointer;border:none}
+  .mech-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+  .mech-card{background:var(--card);backdrop-filter:blur(14px);border:1px solid var(--border);border-radius:16px;padding:18px;transition:.2s}
+  .mech-card:hover{transform:translateY(-3px);box-shadow:0 10px 30px rgba(31,41,51,.12)}
+  .mech-card.unavailable{opacity:.65}
+  .mech-header{display:flex;align-items:center;gap:14px;margin-bottom:12px}
+  .mech-avatar{width:48px;height:48px;min-width:48px;border-radius:14px;background:linear-gradient(135deg,#7f1d1d,#dc2626);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700}
+  .mech-name{font-weight:700;font-size:15px;margin-bottom:2px}
+  .mech-spec{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase}
+  .spec-battery{color:#f59e0b}.spec-charger{color:#3b82f6}.spec-general{color:#10b981}.spec-tyre{color:#8b5cf6}.spec-motor{color:#ec4899}
+  .mech-meta{font-size:12px;color:var(--text-2);margin-bottom:10px;display:flex;flex-direction:column;gap:4px}
+  .avail-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+  .avail-badge.yes{background:rgba(16,185,129,.15);color:#065f46}
+  .avail-badge.no{background:rgba(229,72,77,.12);color:var(--danger)}
+  .call-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:11px;border-radius:12px;background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff;font-weight:700;font-size:14px;text-decoration:none;border:none;cursor:pointer;transition:.15s;margin-top:10px}
+  .call-btn:hover{box-shadow:0 6px 18px rgba(220,38,38,.4);transform:translateY(-1px)}
+  .star-row{display:flex;align-items:center;gap:3px;font-size:12px}
+  .filter-spec{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+  .spec-chip{padding:7px 14px;border-radius:999px;background:rgba(255,255,255,.6);border:1px solid var(--border);font-size:12px;font-weight:600;cursor:pointer;transition:.2s;color:var(--text-2)}
+  .spec-chip:hover,.spec-chip.active{background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff;border-color:transparent}
+  .stn-list{display:flex;flex-direction:column;gap:14px;max-height:420px;overflow-y:auto;padding-right:4px}
+  .stn-list::-webkit-scrollbar{width:5px}.stn-list::-webkit-scrollbar-thumb{background:rgba(220,38,38,.3);border-radius:3px}
+  .emg-stn-card{display:grid;grid-template-columns:88px 1fr;gap:12px;padding:14px;border-radius:16px;background:var(--card);backdrop-filter:blur(14px);border:1px solid var(--border);cursor:pointer;transition:.2s}
+  .emg-stn-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(31,41,51,.10)}
+  .emg-thumb{width:88px;height:88px;border-radius:12px;background:linear-gradient(135deg,#1F2933,#007F7A);display:flex;align-items:center;justify-content:center;font-size:26px;overflow:hidden}
+  .emg-thumb img{width:100%;height:100%;object-fit:cover}
+  .emg-info h4{font-size:14px;margin-bottom:4px}
+  .emg-info .meta{font-size:12px;color:var(--text-2);margin-bottom:6px}
+  .emg-stn-phone{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#dc2626;margin-top:6px}
+  .map-status{position:absolute;bottom:12px;left:12px;z-index:10;background:rgba(31,41,51,.88);backdrop-filter:blur(8px);color:#fff;padding:6px 12px;border-radius:8px;font-size:12px;pointer-events:none}
+  .section-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:24px}
+  @media(max-width:960px){.section-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<nav class="navbar">
+  <a class="brand" href="landing.html"><span class="brand-logo">⚡</span>HapticEV</a>
+  <div class="nav-links">
+    <a href="home.html">Find Stations</a>
+    <a href="history.html">My Bookings</a>
+    <a href="emergency.html" class="active" style="color:#dc2626">🚨 Emergency</a>
+  </div>
+  <div class="nav-right">
+    <span class="avatar" id="userAvatar" style="cursor:pointer" onclick="location.href='history.html'">?</span>
+    <button class="btn btn-ghost" style="padding:6px 14px;font-size:13px" onclick="logout()">Logout</button>
+  </div>
+</nav>
+
+<main class="container" style="padding-bottom:60px">
+  <!-- SOS Banner -->
+  <div class="sos-banner mt-2">
+    <div class="sos-icon">🚨</div>
+    <div>
+      <h2>Emergency Assistance</h2>
+      <p>Stuck on the road? Find nearby mechanics or EV charging stations for immediate help.</p>
+    </div>
+    <div style="margin-left:auto;text-align:right;font-size:13px;opacity:.9">
+      <div style="font-weight:700;font-size:16px" id="locLabel">📍 Detecting location…</div>
+      <div style="margin-top:4px">Help is nearby</div>
+    </div>
+  </div>
+
+  <!-- Tab Switcher -->
+  <div class="emg-tabs">
+    <button class="emg-tab active" id="tabMech" onclick="switchTab('mechanics')">🔧 Mechanics</button>
+    <button class="emg-tab" id="tabStn" onclick="switchTab('stations')">🔋 Battery & Charger</button>
+  </div>
+
+  <!-- ── MECHANICS SECTION ────────────────────────────────────────────────── -->
+  <div class="emg-section active" id="sec-mechanics">
+    <div class="section-grid">
+      <!-- Map -->
+      <div style="position:relative">
+        <div id="mech-map"></div>
+        <div class="map-status" id="mechMapStatus">📍 Locating…</div>
+      </div>
+      <!-- List -->
+      <div>
+        <div class="row mb-2" style="flex-wrap:wrap;gap:8px">
+          <h3 style="flex:1">Nearby Mechanics</h3>
+          <span class="muted" style="font-size:13px" id="mechCount">Loading…</span>
+        </div>
+        <div class="filter-spec" id="specFilters">
+          <button class="spec-chip active" onclick="filterSpec('all',this)">All</button>
+          <button class="spec-chip" onclick="filterSpec('battery',this)">🔋 Battery</button>
+          <button class="spec-chip" onclick="filterSpec('charger',this)">⚡ Charger</button>
+          <button class="spec-chip" onclick="filterSpec('general',this)">🔧 General</button>
+          <button class="spec-chip" onclick="filterSpec('motor',this)">⚙️ Motor</button>
+          <button class="spec-chip" onclick="filterSpec('tyre',this)">🛞 Tyre</button>
+        </div>
+        <div id="mechList" style="display:flex;flex-direction:column;gap:14px;max-height:500px;overflow-y:auto;padding-right:4px">
+          <div class="card" style="padding:32px;text-align:center;color:var(--text-2)">Loading mechanics…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── BATTERY & CHARGER SECTION ─────────────────────────────────────────── -->
+  <div class="emg-section" id="sec-stations">
+    <div class="section-grid">
+      <!-- Map -->
+      <div style="position:relative">
+        <div id="stn-map"></div>
+        <div class="map-status" id="stnMapStatus">📍 Locating…</div>
+      </div>
+      <!-- List -->
+      <div>
+        <div class="row mb-2">
+          <h3 style="flex:1">Nearby Charging Stations</h3>
+          <span class="muted" style="font-size:13px" id="stnCount">Loading…</span>
+        </div>
+        <p class="muted" style="font-size:13px;margin-bottom:12px">Call a nearby station owner for emergency charging or battery swap assistance.</p>
+        <div class="filter-spec" id="stnRatingFilters">
+          <button class="spec-chip active" onclick="filterStnRating('all',this)">All</button>
+          <button class="spec-chip" onclick="filterStnRating('min3',this)">3★+</button>
+          <button class="spec-chip" onclick="filterStnRating('min4',this)">4★+</button>
+          <button class="spec-chip" onclick="filterStnRating('toprated',this)">Top rated</button>
+        </div>
+        <div class="stn-list" id="stnList">
+          <div class="card" style="padding:32px;text-align:center;color:var(--text-2)">Loading stations…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="footer">© 2026 HapticEV · Emergency Help Available 24/7</footer>
+<script src="../js/script.js"></script>
+<script src="../js/api.js"></script>
+<script>
+  const currentUser = API.requireAuth();
+  if (!currentUser) throw new Error('not authenticated');
+  const initials = ((currentUser.first_name||currentUser.username||'U')[0]+(currentUser.last_name||'')[0]).toUpperCase()||'?';
+  document.getElementById('userAvatar').textContent = initials;
+  function logout() { API.auth.clearSession(); location.href = 'login.html'; }
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  let userLat = null, userLng = null;
+  let allMechanics = [], activeSpec = 'all';
+  let stnMinRating = null, stnSortRating = false;
+  const BHOPAL_LAT = 23.2599, BHOPAL_LNG = 77.4126;
+  let mechMap, stnMap, mechMarkers = [], stnMarkers = [], userMechMarker, userStnMarker;
+  let mechMapInited = false, stnMapInited = false;
+
+  // ── Icons ──────────────────────────────────────────────────────────────────
+  const userIcon = L.divIcon({html:`<div style="width:18px;height:18px;background:#3b82f6;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(59,130,246,.7)"></div>`,iconSize:[18,18],iconAnchor:[9,9],className:''});
+  const mechIcon = L.divIcon({html:`<div style="width:34px;height:34px;background:linear-gradient(135deg,#991b1b,#dc2626);border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 2px 8px rgba(220,38,38,.7)">🔧</div>`,iconSize:[34,34],iconAnchor:[17,17],className:''});
+  const mechBusyIcon = L.divIcon({html:`<div style="width:34px;height:34px;background:linear-gradient(135deg,#6b7280,#9ca3af);border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 2px 6px rgba(107,114,128,.5)">🔧</div>`,iconSize:[34,34],iconAnchor:[17,17],className:''});
+  const stnIcon = L.divIcon({html:`<div style="width:34px;height:34px;background:linear-gradient(135deg,#dc2626,#991b1b);border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 2px 8px rgba(220,38,38,.6)">⚡</div>`,iconSize:[34,34],iconAnchor:[17,17],className:''});
+
+  // ── Tab switcher ───────────────────────────────────────────────────────────
+  function switchTab(tab) {
+    document.querySelectorAll('.emg-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.emg-section').forEach(s => s.classList.remove('active'));
+    if (tab === 'mechanics') {
+      document.getElementById('tabMech').classList.add('active');
+      document.getElementById('sec-mechanics').classList.add('active');
+      if (!mechMapInited) { initMechMap(); mechMapInited = true; }
+      else { setTimeout(() => mechMap.invalidateSize(), 50); }
+    } else {
+      document.getElementById('tabStn').classList.add('active');
+      document.getElementById('sec-stations').classList.add('active');
+      if (!stnMapInited) { initStnMap(); stnMapInited = true; }
+      else { setTimeout(() => stnMap.invalidateSize(), 50); }
+    }
+  }
+
+  // ── Init Mechanics Map ─────────────────────────────────────────────────────
+  function initMechMap() {
+    mechMap = L.map('mech-map', { zoomControl: true });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© OpenStreetMap' }).addTo(mechMap);
+    mechMap.setView([20.5937, 78.9629], 5);
+    if (userLat) { placeUserOnMechMap(); loadMechanics(); }
+  }
+
+  function initStnMap() {
+    stnMap = L.map('stn-map', { zoomControl: true });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© OpenStreetMap' }).addTo(stnMap);
+    stnMap.setView([20.5937, 78.9629], 5);
+    if (userLat) { placeUserOnStnMap(); loadEmgStations(); }
+  }
+
+  function placeUserOnMechMap() {
+    if (userMechMarker) mechMap.removeLayer(userMechMarker);
+    userMechMarker = L.marker([userLat, userLng], { icon: userIcon }).addTo(mechMap).bindPopup('<b>📍 You are here</b>');
+    mechMap.setView([userLat, userLng], 13);
+  }
+
+  function placeUserOnStnMap() {
+    if (userStnMarker) stnMap.removeLayer(userStnMarker);
+    userStnMarker = L.marker([userLat, userLng], { icon: userIcon }).addTo(stnMap).bindPopup('<b>📍 You are here</b>');
+    stnMap.setView([userLat, userLng], 13);
+  }
+
+  // ── Load Mechanics from API ────────────────────────────────────────────────
+  async function loadMechanics() {
+    try {
+      let url = '/emergency/mechanics/';
+      if (userLat && userLng) url += `?lat=${userLat}&lng=${userLng}`;
+      const res = await API.apiGet(url);
+      if (!res || !res.ok) { showMechError('Failed to load mechanics'); return; }
+      allMechanics = await res.json();
+      renderMechanics(applySpecFilter(allMechanics));
+    } catch { showMechError('Network error — is the backend running?'); }
+  }
+
+  function applySpecFilter(list) {
+    return activeSpec === 'all' ? list : list.filter(m => m.specialization === activeSpec);
+  }
+
+  function filterSpec(spec, btn) {
+    document.querySelectorAll('.spec-chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    activeSpec = spec;
+    renderMechanics(applySpecFilter(allMechanics));
+  }
+
+  function specColor(s) {
+    return {battery:'#f59e0b',charger:'#3b82f6',general:'#10b981',tyre:'#8b5cf6',motor:'#ec4899'}[s] || '#6b7280';
+  }
+
+  function renderMechanics(mechanics) {
+    mechMarkers.forEach(m => mechMap.removeLayer(m));
+    mechMarkers = [];
+    const list = document.getElementById('mechList');
+    list.innerHTML = '';
+    document.getElementById('mechCount').textContent = mechanics.length + ' found';
+
+    if (!mechanics.length) {
+      list.innerHTML = '<div class="card" style="padding:32px;text-align:center;color:var(--text-2)"><div style="font-size:32px;margin-bottom:8px">🔧</div><div>No mechanics found nearby.</div></div>';
+      return;
+    }
+
+    const coords = mechanics.filter(m => m.latitude && m.longitude).map(m => [m.latitude, m.longitude]);
+    if (userMechMarker) coords.push(userMechMarker.getLatLng());
+    if (coords.length > 1) mechMap.fitBounds(coords, { padding:[40,40] });
+
+    mechanics.forEach(m => {
+      // Card
+      const card = document.createElement('div');
+      card.className = 'mech-card' + (m.is_available ? '' : ' unavailable');
+      const dist = m.distance != null && m.distance < 9000 ? `${m.distance.toFixed(1)} km away · ` : '';
+      const stars = Array.from({length:5}, (_,i) => `<span style="color:${i < Math.round(m.rating) ? '#fbbf24' : 'rgba(0,0,0,.2)'}">★</span>`).join('');
+      card.innerHTML = `
+        <div class="mech-header">
+          <div class="mech-avatar">${m.name[0]}</div>
+          <div>
+            <div class="mech-name">${m.name}</div>
+            <div class="mech-spec" style="color:${specColor(m.specialization)}">${m.specialization_display}</div>
+          </div>
+          <div style="margin-left:auto">
+            <span class="avail-badge ${m.is_available ? 'yes' : 'no'}">${m.is_available ? '● Available' : '○ Busy'}</span>
+          </div>
+        </div>
+        <div class="mech-meta">
+          <div>📍 ${dist}${m.location_text}</div>
+          <div>🛠 ${m.experience_years} yrs experience</div>
+          <div class="star-row">${stars} <span style="margin-left:4px;color:var(--text-2)">${parseFloat(m.rating).toFixed(1)} (${m.review_count} reviews)</span></div>
+        </div>
+        <a class="call-btn" href="tel:${m.phone}">📞 Call Now — ${m.phone}</a>`;
+      list.appendChild(card);
+
+      // Map pin
+      if (m.latitude && m.longitude) {
+        const icon = m.is_available ? mechIcon : mechBusyIcon;
+        const marker = L.marker([m.latitude, m.longitude], { icon })
+          .addTo(mechMap)
+          .bindPopup(`<div class="popup-title">🔧 ${m.name}</div>
+            <div class="popup-addr">${m.specialization_display} · ${m.experience_years} yrs exp</div>
+            <div class="popup-addr">📍 ${m.location_text}</div>
+            <div class="popup-phone">📞 ${m.phone}</div>
+            <a class="popup-btn" href="tel:${m.phone}">Call Now</a>`);
+        card.addEventListener('mouseenter', () => marker.openPopup());
+        card.addEventListener('mouseleave', () => marker.closePopup());
+        mechMarkers.push(marker);
+      }
+    });
+  }
+
+  function showMechError(msg) {
+    document.getElementById('mechList').innerHTML = `<div class="card" style="padding:32px;text-align:center;color:var(--danger)">⚠ ${msg}</div>`;
+  }
+
+  function filterStnRating(type, btn) {
+    document.querySelectorAll('#stnRatingFilters .spec-chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    stnMinRating = type === 'min3' ? 3 : type === 'min4' ? 4 : null;
+    stnSortRating = type === 'toprated';
+    loadEmgStations();
+  }
+
+  function stnStars(avg, count) {
+    const r = Math.round(parseFloat(avg) || 0);
+    const stars = Array.from({length:5}, (_,i) =>
+      `<span style="color:${i < r ? '#fbbf24' : 'rgba(0,0,0,.2)'}">★</span>`).join('');
+    const label = count > 0
+      ? `${parseFloat(avg).toFixed(1)} (${count} review${count === 1 ? '' : 's'})`
+      : 'No reviews yet';
+    return `<div class="star-row" style="margin-top:6px">${stars} <span style="margin-left:4px;color:var(--text-2)">${label}</span></div>`;
+  }
+
+  // ── Load Emergency Stations from API ───────────────────────────────────────
+  async function loadEmgStations() {
+    try {
+      const params = new URLSearchParams();
+      if (userLat != null && userLng != null) {
+        params.set('lat', String(userLat));
+        params.set('lng', String(userLng));
+      }
+      if (stnMinRating != null) params.set('min_rating', String(stnMinRating));
+      if (stnSortRating) params.set('sort', 'rating');
+      let url = '/emergency/stations/';
+      const qs = params.toString();
+      if (qs) url += '?' + qs;
+      const res = await API.apiGet(url);
+      if (!res || !res.ok) { showStnError('Failed to load stations'); return; }
+      const stations = await res.json();
+      renderEmgStations(stations);
+    } catch { showStnError('Network error — is the backend running?'); }
+  }
+
+  function renderEmgStations(stations) {
+    stnMarkers.forEach(m => stnMap.removeLayer(m));
+    stnMarkers = [];
+    const list = document.getElementById('stnList');
+    list.innerHTML = '';
+    document.getElementById('stnCount').textContent = stations.length + ' nearby';
+
+    if (!stations.length) {
+      list.innerHTML = '<div class="card" style="padding:32px;text-align:center;color:var(--text-2)"><div style="font-size:32px;margin-bottom:8px">⚡</div><div>No stations found nearby.</div></div>';
+      return;
+    }
+
+    const coords = stations.filter(s => s.latitude && s.longitude).map(s => [s.latitude, s.longitude]);
+    if (userStnMarker) coords.push(userStnMarker.getLatLng());
+    if (coords.length > 1) stnMap.fitBounds(coords, { padding:[40,40] });
+
+    stations.forEach(s => {
+      const card = document.createElement('div');
+      card.className = 'emg-stn-card';
+      const dist = s.distance != null && s.distance < 9000 ? `${s.distance.toFixed(1)} km · ` : '';
+      const imgHtml = s.image_url ? `<img src="${s.image_url}" alt="${s.name}" loading="lazy"/>` : '⚡';
+      card.innerHTML = `
+        <div class="emg-thumb">${imgHtml}</div>
+        <div class="emg-info">
+          <h4>${s.name}</h4>
+          <div class="meta">📍 ${dist}${s.location_text}</div>
+          <div class="meta">${s.charger_type || 'EV Charger'} · ${s.total_slots} slots</div>
+          ${stnStars(s.avg_rating, s.review_count)}
+          ${s.phone ? `<div class="emg-stn-phone">📞 <a href="tel:${s.phone}" style="color:#dc2626;text-decoration:none">${s.phone}</a></div>` : '<div class="emg-stn-phone" style="color:var(--text-2)">📞 No contact listed</div>'}
+        </div>`;
+      list.appendChild(card);
+
+      if (s.latitude && s.longitude) {
+        const marker = L.marker([s.latitude, s.longitude], { icon: stnIcon })
+          .addTo(stnMap)
+          .bindPopup(`<div class="popup-title">⚡ ${s.name}</div>
+            <div class="popup-addr">📍 ${s.location_text}</div>
+            <div class="popup-addr">${s.charger_type || 'EV Charger'} · ${s.total_slots} slots</div>
+            ${s.phone ? `<div class="popup-phone">📞 ${s.phone}</div><a class="popup-btn" href="tel:${s.phone}">Call Station</a>` : ''}`);
+        card.addEventListener('mouseenter', () => marker.openPopup());
+        card.addEventListener('mouseleave', () => marker.closePopup());
+        stnMarkers.push(marker);
+      }
+    });
+  }
+
+  function showStnError(msg) {
+    document.getElementById('stnList').innerHTML = `<div class="card" style="padding:32px;text-align:center;color:var(--danger)">⚠ ${msg}</div>`;
+  }
+
+  // ── Geolocation ────────────────────────────────────────────────────────────
+  function getLocation() {
+    if (!navigator.geolocation) { initMechMap(); mechMapInited = true; return; }
+    navigator.geolocation.getCurrentPosition(pos => {
+      userLat = pos.coords.latitude;
+      userLng = pos.coords.longitude;
+      document.getElementById('locLabel').textContent = `📍 ${userLat.toFixed(4)}, ${userLng.toFixed(4)}`;
+      document.getElementById('mechMapStatus').textContent = `📍 Location found`;
+      document.getElementById('stnMapStatus').textContent = `📍 Location found`;
+      initMechMap(); mechMapInited = true;
+      placeUserOnMechMap();
+      loadMechanics();
+    }, () => {
+      userLat = BHOPAL_LAT;
+      userLng = BHOPAL_LNG;
+      document.getElementById('locLabel').textContent = '📍 Bhopal (demo area)';
+      document.getElementById('mechMapStatus').textContent = '📍 Bhopal demo';
+      document.getElementById('stnMapStatus').textContent = '📍 Bhopal demo';
+      initMechMap(); mechMapInited = true;
+      placeUserOnMechMap();
+      loadMechanics();
+      if (stnMapInited) { placeUserOnStnMap(); loadEmgStations(); }
+    }, { timeout: 8000 });
+  }
+
+  getLocation();
+</script>
+</body>
+</html>

@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>HapticEV — Add Station</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/style.css"/>
+<!-- Leaflet for location preview map -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  .addr-wrapper           { position:relative; }
+  .addr-suggestions       { position:absolute;top:100%;left:0;right:0;z-index:999;background:#1a2535;border:1px solid var(--border);border-radius:8px;margin-top:4px;max-height:220px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.4); }
+  .addr-suggestion-item   { padding:10px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid rgba(255,255,255,.06);line-height:1.4; }
+  .addr-suggestion-item:hover { background:rgba(0,161,155,.12);color:var(--primary-2); }
+  .addr-suggestion-item .place-type { font-size:10px;color:var(--text-2);margin-top:2px; }
+  #locationMap            { height:200px;border-radius:10px;border:1px solid var(--border);margin-top:8px;display:none; }
+  .coords-badge           { background:rgba(0,161,155,.1);border:1px solid rgba(0,161,155,.3);color:var(--primary-2);padding:6px 12px;border-radius:6px;font-size:12px;font-family:monospace;display:none;margin-top:6px; }
+</style>
+</head>
+<body>
+<div class="owner-shell">
+  <aside class="sidebar">
+    <a class="brand" href="landing.html"><span class="brand-logo">⚡</span><div><div>Station Manager</div><div style="font-size:10px;color:var(--text-2);font-weight:500">HAPTICEV PARTNER</div></div></a>
+    <a class="side-link" href="owner-dashboard.html">📊 Dashboard</a>
+    <a class="side-link active" href="add-station.html">➕ Add Station</a>
+    <a class="side-link" href="manage-slots.html">🔌 Manage Slots</a>
+    <a class="side-link" href="booking-requests.html">🔔 Booking Requests</a>
+    <a class="side-link" href="scanner.html">📷 QR Scanner</a>
+    <a class="side-link danger" href="#" onclick="API.auth.clearSession();location.href='login.html'">⎋ Logout</a>
+  </aside>
+  <main class="owner-main">
+    <h1 style="font-size:32px">Add a New Station</h1>
+    <p class="muted mb-3">Register a new EV charging hub. Your station will be visible to users immediately after submission.</p>
+
+    <div id="errorBox"   style="display:none;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);color:#ef4444;padding:10px 14px;border-radius:8px;font-size:14px;margin-bottom:16px"></div>
+    <div id="successBox" style="display:none;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.4);color:#22c55e;padding:10px 14px;border-radius:8px;font-size:14px;margin-bottom:16px"></div>
+
+    <div class="card" style="max-width:860px">
+      <form id="stationForm">
+
+        <!-- Row 1: Name + Phone -->
+        <div class="grid-2">
+          <div class="field">
+            <label>Station Name *</label>
+            <input class="input" id="fStationName" placeholder="e.g. Green Power Hub" required/>
+          </div>
+          <div class="field">
+            <label>Contact Phone</label>
+            <input class="input" id="fPhone" type="tel" placeholder="+91 98765 43210"/>
+          </div>
+        </div>
+
+        <!-- Address with live autocomplete (Nominatim / OpenStreetMap) -->
+        <div class="field">
+          <label>Station Address * <span class="muted" style="font-size:11px;font-weight:400">(type to search — real address required)</span></label>
+          <div class="addr-wrapper">
+            <input class="input" id="fAddress" placeholder="Start typing your address… e.g. MG Road, Bangalore" autocomplete="off" required/>
+            <div class="addr-suggestions" id="addrSuggestions" style="display:none"></div>
+          </div>
+          <!-- Hidden lat/lng — auto-filled from map selection -->
+          <input type="hidden" id="fLat"/>
+          <input type="hidden" id="fLng"/>
+          <!-- Mini map preview -->
+          <div id="locationMap"></div>
+          <div class="coords-badge" id="coordsBadge"></div>
+        </div>
+
+        <!-- GPS auto-fill button -->
+        <button type="button" class="btn btn-ghost" style="padding:6px 14px;font-size:12px;margin-bottom:16px" onclick="autoFillGPS()">
+          📍 Auto-detect my location (GPS)
+        </button>
+
+        <!-- Row 2: Slots + Charger type -->
+        <div class="grid-2">
+          <div class="field">
+            <label>Number of Charging Slots *</label>
+            <input class="input" id="fSlots" type="number" value="4" min="1" max="100" required/>
+          </div>
+          <div class="field">
+            <label>Charger Type</label>
+            <select class="select" id="fCharger">
+              <option value="Fast Charger - 50kW">Fast Charger - 50kW</option>
+              <option value="Ultra Fast - 150kW">Ultra Fast - 150kW</option>
+              <option value="Standard Charger - 22kW">Standard Charger - 22kW</option>
+              <option value="CCS 2 (350kW)">CCS 2 (350kW)</option>
+              <option value="CHAdeMO (100kW)">CHAdeMO (100kW)</option>
+              <option value="Type 2 (50kW)">Type 2 (50kW)</option>
+              <option value="Tesla Supercharger">Tesla Supercharger</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Row 3: Price per hour + Operating hours -->
+        <div class="grid-2">
+          <div class="field">
+            <label>Price per Hour (₹) *</label>
+            <div style="position:relative">
+              <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-2);font-weight:600">₹</span>
+              <input class="input" id="fPrice" type="number" min="0" step="0.50" placeholder="80" style="padding-left:28px" required/>
+            </div>
+            <div class="muted" style="font-size:11px;margin-top:4px">Users will see this price per hour when booking.</div>
+          </div>
+          <div class="field">
+            <label>Operating Hours</label>
+            <select class="select" id="fHours">
+              <option value="Open 24/7">Open 24/7</option>
+              <option value="6 AM – 10 PM">6 AM – 10 PM</option>
+              <option value="8 AM – 10 PM">8 AM – 10 PM</option>
+              <option value="9 AM – 9 PM">9 AM – 9 PM</option>
+              <option value="Custom">Custom</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Description -->
+        <div class="field">
+          <label>Description</label>
+          <textarea class="input" id="fDesc" rows="3" placeholder="e.g. Covered parking, security guard present. Near Metro Station exit gate 2." style="resize:vertical"></textarea>
+        </div>
+
+        <!-- Station Image -->
+        <div class="field">
+          <label>Station Image (optional)</label>
+          <input type="file" id="fImage" accept="image/*" class="input" style="padding:8px"/>
+          <div class="muted" style="font-size:11px;margin-top:4px">PNG or JPG, max 5MB. Shown to users on the station card.</div>
+        </div>
+
+        <button class="btn btn-primary btn-block mt-2" type="submit" id="submitBtn">Add Station to Network ⚡</button>
+      </form>
+    </div>
+  </main>
+</div>
+
+<script src="../js/script.js"></script>
+<script src="../js/api.js"></script>
+<script>
+  if (!API.requireAuth(true)) throw new Error("not authenticated");
+
+  function showError(msg)   { const b = document.getElementById('errorBox');   b.textContent = msg; b.style.display = msg ? 'block' : 'none'; document.getElementById('successBox').style.display='none'; }
+  function showSuccess(msg) { const b = document.getElementById('successBox'); b.textContent = msg; b.style.display = msg ? 'block' : 'none'; document.getElementById('errorBox').style.display='none'; }
+
+  // ── Mini location preview map ─────────────────────────────────────────────
+  let previewMap    = null;
+  let previewMarker = null;
+
+  function showLocationPreview(lat, lng, label) {
+    const mapEl = document.getElementById('locationMap');
+    const badge = document.getElementById('coordsBadge');
+    mapEl.style.display = 'block';
+    badge.style.display = 'block';
+    badge.textContent   = `📍 ${lat.toFixed(5)}, ${lng.toFixed(5)} — ${label}`;
+
+    if (!previewMap) {
+      previewMap = L.map('locationMap', { zoomControl: true, scrollWheelZoom: false });
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors', maxZoom: 19
+      }).addTo(previewMap);
+    }
+
+    previewMap.setView([lat, lng], 15);
+    if (previewMarker) previewMap.removeLayer(previewMarker);
+    previewMarker = L.marker([lat, lng]).addTo(previewMap).bindPopup(label).openPopup();
+    // Fix Leaflet render inside hidden div
+    setTimeout(() => previewMap.invalidateSize(), 100);
+  }
+
+  // ── Address autocomplete (Nominatim — OpenStreetMap, free & real) ─────────
+  let searchTimer = null;
+
+  document.getElementById('fAddress').addEventListener('input', function() {
+    clearTimeout(searchTimer);
+    const q = this.value.trim();
+    if (q.length < 3) { hideSuggestions(); return; }
+    searchTimer = setTimeout(() => fetchAddressSuggestions(q), 400);
+  });
+
+  document.getElementById('fAddress').addEventListener('blur', () => {
+    setTimeout(hideSuggestions, 200);
+  });
+
+  async function fetchAddressSuggestions(query) {
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=6&addressdetails=1&accept-language=en`;
+      const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+      const results = await res.json();
+      renderSuggestions(results);
+    } catch {
+      hideSuggestions();
+    }
+  }
+
+  function renderSuggestions(results) {
+    const container = document.getElementById('addrSuggestions');
+    if (!results || results.length === 0) { hideSuggestions(); return; }
+    container.innerHTML = '';
+    results.forEach(r => {
+      const item = document.createElement('div');
+      item.className = 'addr-suggestion-item';
+      const shortName  = r.display_name.split(',').slice(0,3).join(', ');
+      const typeLabel  = r.type || r.class || '';
+      item.innerHTML = `<div>${shortName}</div><div class="place-type">${r.display_name}</div>`;
+      item.onmousedown = () => selectAddress(r);
+      container.appendChild(item);
+    });
+    container.style.display = 'block';
+  }
+
+  function selectAddress(result) {
+    const lat = parseFloat(result.lat);
+    const lng = parseFloat(result.lon);
+    const addr = result.display_name;
+
+    document.getElementById('fAddress').value = addr;
+    document.getElementById('fLat').value     = lat;
+    document.getElementById('fLng').value     = lng;
+    hideSuggestions();
+    showLocationPreview(lat, lng, addr.split(',').slice(0,3).join(', '));
+  }
+
+  function hideSuggestions() {
+    document.getElementById('addrSuggestions').style.display = 'none';
+  }
+
+  // ── GPS auto-fill ────────────────────────────────────────────────────────
+  async function autoFillGPS() {
+    if (!navigator.geolocation) { toast('Geolocation not supported'); return; }
+    toast('Getting your GPS location…');
+    navigator.geolocation.getCurrentPosition(async pos => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      document.getElementById('fLat').value = lat;
+      document.getElementById('fLng').value = lng;
+
+      // Reverse geocode to get readable address
+      try {
+        const res  = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=en`);
+        const data = await res.json();
+        if (data.display_name) {
+          document.getElementById('fAddress').value = data.display_name;
+          showLocationPreview(lat, lng, data.display_name.split(',').slice(0,3).join(', '));
+          toast('Location filled from GPS ✓');
+        }
+      } catch {
+        document.getElementById('fAddress').value = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        showLocationPreview(lat, lng, 'Your current location');
+      }
+    }, () => toast('Could not get GPS location'));
+  }
+
+  // ── Form submit ───────────────────────────────────────────────────────────
+  document.getElementById('stationForm').onsubmit = async e => {
+    e.preventDefault();
+    showError('');
+
+    const lat = document.getElementById('fLat').value;
+    const lng = document.getElementById('fLng').value;
+    if (!lat || !lng) {
+      showError('Please select an address from the suggestions so we can pin your station on the map.');
+      document.getElementById('fAddress').focus();
+      return;
+    }
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true; btn.textContent = 'Adding Station…';
+
+    try {
+      const imageFile = document.getElementById('fImage').files[0];
+      let res;
+
+      if (imageFile) {
+        const fd = new FormData();
+        fd.append('name',           document.getElementById('fStationName').value.trim());
+        fd.append('location_text',  document.getElementById('fAddress').value.trim());
+        fd.append('phone',          document.getElementById('fPhone').value.trim());
+        fd.append('total_slots',    document.getElementById('fSlots').value);
+        fd.append('charger_type',   document.getElementById('fCharger').value);
+        fd.append('price_per_hour', document.getElementById('fPrice').value);
+        fd.append('description',    document.getElementById('fDesc').value.trim() + (document.getElementById('fHours').value !== 'Custom' ? '\nHours: ' + document.getElementById('fHours').value : ''));
+        fd.append('latitude',  lat);
+        fd.append('longitude', lng);
+        fd.append('image', imageFile);
+        res = await API.apiPost('/owner/stations/', fd, true);
+      } else {
+        res = await API.apiPost('/owner/stations/', {
+          name:           document.getElementById('fStationName').value.trim(),
+          location_text:  document.getElementById('fAddress').value.trim(),
+          phone:          document.getElementById('fPhone').value.trim(),
+          total_slots:    parseInt(document.getElementById('fSlots').value),
+          charger_type:   document.getElementById('fCharger').value,
+          price_per_hour: parseFloat(document.getElementById('fPrice').value) || null,
+          description:    document.getElementById('fDesc').value.trim() + '\nHours: ' + document.getElementById('fHours').value,
+          latitude:       parseFloat(lat),
+          longitude:      parseFloat(lng),
+        });
+      }
+
+      if (!res) return;
+      const data = await res.json();
+      if (!res.ok) { showError(data.error || Object.values(data).flat().join(' ') || 'Failed.'); return; }
+
+      showSuccess(`✅ Station "${data.station?.name || 'New Station'}" is now live and visible to users!`);
+      document.getElementById('stationForm').reset();
+      document.getElementById('locationMap').style.display = 'none';
+      document.getElementById('coordsBadge').style.display = 'none';
+      document.getElementById('fLat').value = '';
+      document.getElementById('fLng').value = '';
+      setTimeout(() => location.href = 'manage-slots.html', 1800);
+
+    } catch {
+      showError('Network error. Make sure the backend is running on localhost:8000.');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Add Station to Network ⚡';
+    }
+  };
+</script>
+</body>
+</html>

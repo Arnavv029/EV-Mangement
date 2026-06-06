@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>HapticEV — Find Stations</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/style.css"/>
+<!-- Leaflet.js — real interactive map (OpenStreetMap, no API key required) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  #leaflet-map           { height:460px;border-radius:16px;z-index:1;border:1px solid var(--border); }
+  .leaflet-popup-content-wrapper { background:#1F2933;color:#fff;border-radius:10px;border:1px solid rgba(0,161,155,.4); }
+  .leaflet-popup-tip     { background:#1F2933; }
+  .leaflet-popup-content { margin:12px 16px; }
+  .popup-title           { font-weight:700;font-size:14px;color:#7BE3DC;margin-bottom:4px; }
+  .popup-addr            { font-size:12px;color:rgba(255,255,255,.75);margin-bottom:6px; }
+  .popup-price           { font-size:12px;color:#7BE3DC;margin-bottom:8px;font-weight:600; }
+  .popup-btn             { display:inline-block;background:var(--primary);color:#fff;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none;cursor:pointer;border:none; }
+  .map-card-wrap         { position:relative; }
+</style>
+</head>
+<body>
+<nav class="navbar">
+  <a class="brand" href="landing.html"><span class="brand-logo">⚡</span>HapticEV</a>
+  <input class="input hide-sm" style="max-width:280px;border-radius:999px" placeholder="🔍 Search stations…" id="searchInput"/>
+  <div class="nav-links">
+    <a href="home.html" class="active">Find Stations</a>
+    <a href="history.html">My Bookings</a>
+    <a href="emergency.html" style="color:#dc2626;font-weight:700;background:rgba(220,38,38,.10);border-radius:999px;padding:10px 16px">🚨 Emergency</a>
+  </div>
+  <div class="nav-right">
+    <span class="avatar" id="userAvatar" style="cursor:pointer" onclick="location.href='history.html'" title="My Bookings">?</span>
+    <button class="btn btn-ghost" style="padding:6px 14px;font-size:13px" onclick="logout()">Logout</button>
+  </div>
+</nav>
+
+<!-- Floating SOS Button -->
+<a href="emergency.html" id="sosFab" style="
+  position:fixed;bottom:32px;right:32px;z-index:9999;
+  width:64px;height:64px;border-radius:50%;
+  background:linear-gradient(135deg,#dc2626,#991b1b);
+  color:#fff;font-size:26px;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 6px 24px rgba(220,38,38,.55);
+  text-decoration:none;
+  animation:sosPulse 2s ease-in-out infinite;
+" title="Emergency Help">🚨</a>
+<style>
+@keyframes sosPulse{0%,100%{box-shadow:0 6px 24px rgba(220,38,38,.55),0 0 0 0 rgba(220,38,38,.4)}50%{box-shadow:0 6px 24px rgba(220,38,38,.55),0 0 0 14px rgba(220,38,38,0)}}
+</style>
+
+<main class="container">
+  <div class="row" style="margin-top:8px;justify-content:space-between;flex-wrap:wrap;gap:12px">
+    <div>
+      <div class="muted" style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase">Nearby EV Stations</div>
+      <div class="filter-bar mt-1">
+        <button class="chip active" onclick="filterStations('all',this)">All</button>
+        <button class="chip" onclick="filterStations('available',this)">Available</button>
+        <button class="chip" onclick="filterStations('fast',this)">Fast Charging</button>
+        <button class="chip" onclick="filterStations('min3',this)">3★+</button>
+        <button class="chip" onclick="filterStations('min4',this)">4★+</button>
+        <button class="chip" onclick="filterStations('toprated',this)">Top rated</button>
+      </div>
+    </div>
+    <div class="row" style="gap:8px">
+      <button class="btn btn-primary" id="locBtn" onclick="refreshLocation()">📍 Use My Location</button>
+    </div>
+  </div>
+
+  <div class="home-grid">
+    <!-- ── LEAFLET MAP ───────────────────────────────────────────────────── -->
+    <div class="map-card-wrap">
+      <div id="leaflet-map"></div>
+      <div id="mapStatus" style="position:absolute;bottom:12px;left:12px;z-index:10;background:rgba(31,41,51,.88);backdrop-filter:blur(8px);color:#fff;padding:6px 12px;border-radius:8px;font-size:12px;pointer-events:none">
+        📍 Locating you…
+      </div>
+    </div>
+
+    <!-- ── STATION LIST ──────────────────────────────────────────────────── -->
+    <div>
+      <div class="row mb-2">
+        <h3>Nearby Stations</h3>
+        <span class="spacer"></span>
+        <span class="muted" id="foundCount" style="font-size:13px">Loading…</span>
+      </div>
+      <div class="station-list" id="stationList">
+        <div class="card" style="padding:32px;text-align:center;color:var(--text-2)">
+          <div style="font-size:24px;margin-bottom:8px">⚡</div>
+          <div>Loading stations…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="footer">© 2026 HapticEV · Sustainable Mobility</footer>
+<script src="../js/script.js"></script>
+<script src="../js/api.js"></script>
+<script>
+  // ── Auth guard ────────────────────────────────────────────────────────────
+  const currentUser = API.requireAuth();
+  if (!currentUser) throw new Error('not authenticated');
+
+  const initials = ((currentUser.first_name||currentUser.username||'U')[0]+(currentUser.last_name||'')[0]).toUpperCase()||'?';
+  document.getElementById('userAvatar').textContent = initials;
+  function logout() { API.auth.clearSession(); location.href = 'login.html'; }
+
+  // ── Leaflet map setup ─────────────────────────────────────────────────────
+  const map = L.map('leaflet-map', { zoomControl: true, attributionControl: true });
+
+  // OpenStreetMap tiles (free, no API key)
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19
+  }).addTo(map);
+
+  // Default view — center of India (will update when user shares location)
+  map.setView([20.5937, 78.9629], 5);
+
+  // Custom icons
+  const userIcon = L.divIcon({
+    html: `<div style="width:20px;height:20px;background:#3b82f6;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(59,130,246,.7)"></div>`,
+    iconSize:[20,20], iconAnchor:[10,10], className:''
+  });
+
+  const stationIcon = L.divIcon({
+    html: `<div style="width:32px;height:32px;background:linear-gradient(135deg,#007F7A,#00A19B);border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 2px 8px rgba(0,161,155,.7)">⚡</div>`,
+    iconSize:[32,32], iconAnchor:[16,16], className:''
+  });
+
+  const stationIconFull = L.divIcon({
+    html: `<div style="width:32px;height:32px;background:linear-gradient(135deg,#7f1d1d,#ef4444);border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 2px 6px rgba(239,68,68,.5)">⚡</div>`,
+    iconSize:[32,32], iconAnchor:[16,16], className:''
+  });
+
+  let userMarker = null;
+  let stationMarkers = [];
+  let allStations = [];
+  let lastLat = null;
+  let lastLng = null;
+  let clientSubtype = 'all';
+  let serverMinRating = null;
+  let serverSortRating = false;
+
+  function starRowHtml(avg, count) {
+    const a = typeof avg === 'number' ? avg : parseFloat(avg || 0);
+    const c = count || 0;
+    const filled = Math.round(a);
+    let stars = '';
+    for (let i = 1; i <= 5; i++) stars += `<span style="color:${i <= filled ? '#fbbf24' : 'rgba(255,255,255,.25)'}">★</span>`;
+    return `<span class="row" style="gap:4px;align-items:center;font-size:12px">${stars}<span class="muted" style="font-size:11px">${a.toFixed(1)} (${c})</span></span>`;
+  }
+
+  // ── Render station cards + map pins ──────────────────────────────────────
+  function renderStations(stations) {
+    // Clear old map markers
+    stationMarkers.forEach(m => map.removeLayer(m));
+    stationMarkers = [];
+
+    const list = document.getElementById('stationList');
+    list.innerHTML = '';
+    document.getElementById('foundCount').textContent = stations.length + ' found';
+
+    if (stations.length === 0) {
+      list.innerHTML = '<div class="card" style="padding:32px;text-align:center;color:var(--text-2)"><div style="font-size:32px;margin-bottom:8px">😔</div><div>No stations found. Ask a station owner to register their station first.</div></div>';
+      return;
+    }
+
+    // Fit map to show all stations
+    if (stations.some(s => s.latitude && s.longitude)) {
+      const coords = stations
+        .filter(s => s.latitude && s.longitude)
+        .map(s => [s.latitude, s.longitude]);
+      if (userMarker) coords.push(userMarker.getLatLng());
+      if (coords.length > 0) map.fitBounds(coords, { padding: [40, 40] });
+    }
+
+    stations.forEach(s => {
+      // ── Card ──────────────────────────────────────────────────────────
+      const card = document.createElement('div');
+      card.className = 'card card-hover station-card';
+      card.dataset.id = s.id;
+      card.onclick = () => location.href = 'station-details.html?id=' + s.id;
+
+      const distText  = s.distance != null ? s.distance.toFixed(1) + ' km' : '';
+      const imgHtml   = s.image_url
+        ? `<img src="${s.image_url}" alt="${s.name}" loading="lazy" style="width:100%;height:100%;object-fit:cover"/>`
+        : '<span style="font-size:32px">⚡</span>';
+      const charger   = s.charger_type || 'Standard Charger';
+      const isFast    = /fast|ultra/i.test(charger);
+      const priceText = s.price_per_hour ? `₹${parseFloat(s.price_per_hour).toFixed(0)}/hr` : '';
+      const avg = s.avg_rating != null ? parseFloat(s.avg_rating) : 0;
+      const rc = s.review_count || 0;
+
+      card.innerHTML = `
+        <div class="station-thumb">${imgHtml}</div>
+        <div class="station-info">
+          <div class="row"><h4>${s.name}</h4></div>
+          <div class="meta">${starRowHtml(avg, rc)}</div>
+          <div class="meta">📍 ${[distText, s.location_text].filter(Boolean).join(' · ')}</div>
+          <div class="station-meta-row">
+            ${isFast ? '<span class="badge badge-mint">Fast Charging</span>' : '<span class="badge badge-gray">Standard</span>'}
+            <span class="badge badge-gray">${s.total_slots} slots</span>
+            ${priceText ? `<span class="badge badge-mint" style="font-size:10px">${priceText}</span>` : ''}
+          </div>
+          <div class="station-bottom">
+            <div class="muted" style="font-size:12px">${s.charger_type || ''}</div>
+            <button class="btn btn-primary" style="padding:8px 18px;font-size:13px"
+              onclick="event.stopPropagation();location.href='station-details.html?id=${s.id}'">Book Now</button>
+          </div>
+        </div>`;
+      list.appendChild(card);
+
+      // ── Map pin ────────────────────────────────────────────────────────
+      if (s.latitude && s.longitude) {
+        const icon = (s.available_slots === 0) ? stationIconFull : stationIcon;
+        const marker = L.marker([s.latitude, s.longitude], { icon })
+          .addTo(map)
+          .bindPopup(`
+            <div class="popup-title">⚡ ${s.name}</div>
+            <div class="popup-addr">📍 ${s.location_text}</div>
+            ${priceText ? `<div class="popup-price">${priceText} · ${charger}</div>` : `<div class="popup-price">${charger}</div>`}
+            <div style="font-size:11px;margin-bottom:8px;color:rgba(255,255,255,.85)">${starRowHtml(s.avg_rating, s.review_count)}</div>
+            <button class="popup-btn" onclick="location.href='station-details.html?id=${s.id}'">Book Now →</button>
+          `);
+
+        // Highlight card when popup opens
+        marker.on('click', () => {
+          document.querySelectorAll('.station-card').forEach(c => c.classList.remove('highlight'));
+          card.classList.add('highlight');
+          card.scrollIntoView({ behavior:'smooth', block:'nearest' });
+        });
+
+        // Highlight marker when hovering card
+        card.addEventListener('mouseenter', () => marker.openPopup());
+        card.addEventListener('mouseleave', () => marker.closePopup());
+
+        stationMarkers.push(marker);
+      }
+    });
+  }
+
+  // ── Filter chips (server: min rating / sort; client: availability / charger) ─
+  function filterStations(type, btn) {
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    clientSubtype = 'all';
+    serverMinRating = null;
+    serverSortRating = false;
+    if (type === 'available') clientSubtype = 'available';
+    else if (type === 'fast') clientSubtype = 'fast';
+    else if (type === 'min3') serverMinRating = 3;
+    else if (type === 'min4') serverMinRating = 4;
+    else if (type === 'toprated') serverSortRating = true;
+    loadStations();
+  }
+
+  function applyClientFilters(list) {
+    if (clientSubtype === 'fast') return list.filter(s => /fast|ultra/i.test(s.charger_type || ''));
+    if (clientSubtype === 'available') return list.filter(s => (s.available_slots ?? s.total_slots) > 0);
+    return list;
+  }
+
+  // ── Load stations from API ────────────────────────────────────────────────
+  async function loadStations() {
+    try {
+      let url = '/stations/';
+      const params = new URLSearchParams();
+      if (lastLat != null && lastLng != null) {
+        params.set('lat', String(lastLat));
+        params.set('lng', String(lastLng));
+      }
+      if (serverMinRating != null) params.set('min_rating', String(serverMinRating));
+      if (serverSortRating) params.set('sort', 'rating');
+      const qs = params.toString();
+      if (qs) url += '?' + qs;
+      const res = await API.apiGet(url);
+      if (!res) return;
+      if (!res.ok) { toast('Failed to load stations'); return; }
+      allStations = await res.json();
+      renderStations(applyClientFilters(allStations));
+    } catch {
+      document.getElementById('stationList').innerHTML =
+        '<div class="card" style="padding:32px;text-align:center;color:var(--danger)">⚠ Network error — is the backend running?</div>';
+    }
+  }
+
+  // ── Geolocation ───────────────────────────────────────────────────────────
+  function refreshLocation() {
+    document.getElementById('locBtn').textContent = '📍 Locating…';
+    if (!navigator.geolocation) { loadStations(); return; }
+
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        lastLat = lat;
+        lastLng = lng;
+
+        // Show user blue dot
+        if (userMarker) map.removeLayer(userMarker);
+        userMarker = L.marker([lat, lng], { icon: userIcon })
+          .addTo(map)
+          .bindPopup('<b>📍 You are here</b>');
+        map.setView([lat, lng], 13);
+
+        document.getElementById('mapStatus').textContent = `📍 Location found · ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+        document.getElementById('locBtn').textContent = '📍 Location Active';
+        loadStations();
+      },
+      () => {
+        document.getElementById('mapStatus').textContent = '📍 Location access denied';
+        document.getElementById('locBtn').textContent = '📍 Retry Location';
+        loadStations();
+      },
+      { timeout: 8000 }
+    );
+  }
+
+  // ── Search ────────────────────────────────────────────────────────────────
+  document.getElementById('searchInput').addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    const base = applyClientFilters(allStations);
+    const filtered = q
+      ? base.filter(s => s.name.toLowerCase().includes(q) || s.location_text.toLowerCase().includes(q))
+      : base;
+    renderStations(filtered);
+  });
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  loadStations();
+  refreshLocation();
+</script>
+</body>
+</html>

@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>HapticEV — Powering the future of mobility</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/style.css"/>
+</head>
+<body>
+<nav class="navbar">
+  <a class="brand" href="landing.html"><span class="brand-logo">⚡</span>HapticEV</a>
+
+  <!-- Auth-aware nav links: shown only when logged in -->
+  <div class="nav-links hide-sm" id="authLinks" style="display:none!important">
+    <a href="landing.html" class="active">Home</a>
+    <a href="home.html"    id="linkStations">Find Stations</a>
+    <a href="history.html" id="linkBookings">My Bookings</a>
+    <a href="owner-dashboard.html" id="linkOwner" style="display:none">Owner Dashboard</a>
+  </div>
+
+  <!-- Guest nav: shown only when NOT logged in -->
+  <div class="nav-links hide-sm" id="guestLinks">
+    <a href="landing.html" class="active">Home</a>
+    <a href="#" onclick="requireLoginRedirect('home.html')">Find Stations</a>
+    <a href="#" onclick="requireLoginRedirect('history.html')">My Bookings</a>
+    <a href="#" onclick="requireLoginRedirect('login.html?role=owner')">For Owners</a>
+  </div>
+
+  <!-- Auth-aware right side -->
+  <div class="nav-right" id="navRight">
+    <!-- filled by JS -->
+  </div>
+</nav>
+
+<section class="container hero">
+  <div class="hero-content">
+    <div class="eyebrow">⚡ Next-Gen Mobility</div>
+    <h1>Smart EV Charging <span>Made Effortless</span></h1>
+    <p>Locate nearby charging stations, reserve slots instantly, and verify bookings seamlessly with smart QR technology.</p>
+    <div class="hero-actions" id="heroCTA">
+      <!-- filled by JS based on auth state -->
+    </div>
+  </div>
+  <div class="hero-video-wrap">
+    <video autoplay muted loop playsinline preload="auto" poster="../images/ev-hero.jpg">
+      <source src="../videos/ev-hero.mp4" type="video/mp4"/>
+    </video>
+    <div class="hero-particles" aria-hidden="true">
+      <span></span><span></span><span></span><span></span><span></span><span></span>
+    </div>
+  </div>
+</section>
+
+<section class="container">
+  <div class="feature-grid">
+    <div class="card card-hover">
+      <div class="feature-icon">📍</div>
+      <h3>Nearby Station Discovery</h3>
+      <p class="muted mt-1">Location-powered station finder that shows you the nearest EV charging hubs with real-time distance.</p>
+    </div>
+    <div class="card card-hover">
+      <div class="feature-icon">📅</div>
+      <h3>Smart Slot Booking</h3>
+      <p class="muted mt-1">Zero-wait policy. Pre-book your charging window and arrive to an empty stall every single time.</p>
+    </div>
+    <div class="card card-hover">
+      <div class="feature-icon">📡</div>
+      <h3>Real-Time Availability</h3>
+      <p class="muted mt-1">Instant slot updates — as soon as someone books, the slot turns red for everyone else.</p>
+    </div>
+    <div class="card card-hover">
+      <div class="feature-icon">🔒</div>
+      <h3>QR-Based Verification</h3>
+      <p class="muted mt-1">One scan to unlock. Secure, fast QR verification at the station — no paperwork needed.</p>
+    </div>
+  </div>
+</section>
+
+<section class="container mt-4">
+  <h2 class="text-center" style="font-size:36px;margin-bottom:12px">Experience the Flow</h2>
+  <p class="text-center muted mb-3">Transitioning to sustainable energy should be as simple as breathing.</p>
+  <div class="feature-grid">
+    <div class="card"><div class="muted" style="font-weight:700;color:var(--primary-2)">01</div><h3 class="mt-1">Find Station</h3><p class="muted mt-1">Open the map, share your location, and find the nearest EV charging station in seconds.</p></div>
+    <div class="card"><div class="muted" style="font-weight:700;color:var(--primary-2)">02</div><h3 class="mt-1">Choose Slot</h3><p class="muted mt-1">Pick a date and time slot. Green means available, red means full — live status.</p></div>
+    <div class="card"><div class="muted" style="font-weight:700;color:var(--primary-2)">03</div><h3 class="mt-1">Confirm & Pay</h3><p class="muted mt-1">Secure your stall with your details and choose your preferred payment method.</p></div>
+    <div class="card"><div class="muted" style="font-weight:700;color:var(--primary-2)">04</div><h3 class="mt-1">Scan & Charge</h3><p class="muted mt-1">Show your QR code at the station. Owner scans, approves, and charging begins.</p></div>
+  </div>
+</section>
+
+<section class="container mt-4">
+  <div class="card" style="background:linear-gradient(135deg,#1F2933,#007F7A);color:#fff;text-align:center;padding:50px 30px;border:none">
+    <h2 style="color:#fff;font-size:34px">Join the movement toward<br/><span style="color:#7BE3DC">frictionless energy.</span></h2>
+    <p style="color:rgba(255,255,255,.8);margin:14px auto 22px;max-width:520px">Sign up today and experience the future of electric mobility. Your next charge is just a click away.</p>
+    <div class="hero-actions" id="ctaBottom">
+      <!-- filled by JS -->
+    </div>
+  </div>
+</section>
+
+<footer class="footer">© 2026 HapticEV · Sustainable Mobility, Powered by Intelligence.</footer>
+
+<script src="../js/script.js"></script>
+<script src="../js/api.js"></script>
+<script>
+  function requireLoginRedirect(page) {
+    toast('Please sign in to access this feature');
+    setTimeout(() => location.href = 'login.html', 700);
+  }
+
+  function logout() {
+    API.auth.clearSession();
+    location.reload();
+  }
+
+  // ── Render UI based on auth state ────────────────────────────────────────
+  const user  = API.auth.getUser();
+  const token = API.auth.getToken();
+  const isAuth = !!(token && user);
+
+  // Nav links
+  if (isAuth) {
+    document.getElementById('authLinks').style.cssText = ''; // show auth links
+    document.getElementById('guestLinks').style.display = 'none';
+    // Show owner link only to owners
+    if (user.role === 'owner') {
+      document.getElementById('linkOwner').style.display = '';
+      document.getElementById('linkStations').style.display = 'none';
+      document.getElementById('linkBookings').style.display = 'none';
+    }
+  } else {
+    document.getElementById('authLinks').style.cssText = 'display:none!important';
+    document.getElementById('guestLinks').style.cssText = '';
+  }
+
+  // Right nav
+  const navRight = document.getElementById('navRight');
+  if (isAuth) {
+    const name     = (user.first_name || user.username || 'U');
+    const initials = (name[0] + (user.last_name||'')[0]).toUpperCase();
+    const dest     = user.role === 'owner' ? 'owner-dashboard.html' : 'home.html';
+    navRight.innerHTML = `
+      <a class="avatar" href="${dest}" style="text-decoration:none" title="Go to dashboard">${initials}</a>
+      <a class="btn btn-primary" href="${dest}">${user.role === 'owner' ? 'Dashboard' : 'Find Stations'} →</a>
+      <button class="btn btn-ghost hide-sm" onclick="logout()">Logout</button>`;
+  } else {
+    navRight.innerHTML = `
+      <a class="btn btn-ghost hide-sm" href="login.html">Login</a>
+      <a class="btn btn-primary" href="login.html">Get Started</a>`;
+  }
+
+  // Hero CTA
+  const heroCTA    = document.getElementById('heroCTA');
+  const ctaBottom  = document.getElementById('ctaBottom');
+  if (isAuth && user.role === 'owner') {
+    heroCTA.innerHTML = `<a class="btn btn-primary" href="owner-dashboard.html">Owner Dashboard →</a><a class="btn btn-ghost" href="add-station.html">Add Station</a>`;
+    ctaBottom.innerHTML = `<a class="btn btn-ghost" href="add-station.html">Add Station</a><a class="btn btn-primary" href="owner-dashboard.html">Dashboard →</a>`;
+  } else if (isAuth) {
+    heroCTA.innerHTML = `<a class="btn btn-primary" href="home.html">Find Stations →</a><a class="btn btn-ghost" href="history.html">My Bookings</a>`;
+    ctaBottom.innerHTML = `<a class="btn btn-ghost" href="history.html">My Bookings</a><a class="btn btn-primary" href="home.html">Find Stations →</a>`;
+  } else {
+    heroCTA.innerHTML = `<a class="btn btn-primary" href="login.html">Find Stations →</a><a class="btn btn-ghost" href="login.html">Become a Station Owner</a>`;
+    ctaBottom.innerHTML = `<a class="btn btn-ghost" href="login.html">Create Account</a><a class="btn btn-primary" href="login.html">Get Started →</a>`;
+  }
+</script>
+</body>
+</html>

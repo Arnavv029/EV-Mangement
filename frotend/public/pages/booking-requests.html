@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>HapticEV — Booking Requests</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/style.css"/>
+</head>
+<body>
+<div class="owner-shell">
+  <aside class="sidebar">
+    <a class="brand" href="landing.html"><span class="brand-logo">⚡</span><div><div>Station Manager</div><div style="font-size:10px;color:var(--text-2)">HAPTICEV PARTNER</div></div></a>
+    <a class="side-link" href="owner-dashboard.html">📊 Dashboard</a>
+    <a class="side-link" href="add-station.html">➕ Add Station</a>
+    <a class="side-link" href="manage-slots.html">🔌 Manage Slots</a>
+    <a class="side-link active" href="booking-requests.html">🔔 Booking Requests</a>
+    <a class="side-link" href="scanner.html">📷 QR Scanner</a>
+    <a class="side-link danger" href="#" onclick="API.auth.clearSession();location.href='login.html'">⎋ Logout</a>
+  </aside>
+  <main class="owner-main">
+    <div class="row mb-3">
+      <div>
+        <h1 style="font-size:32px">Booking Requests</h1>
+        <p class="muted">Review and approve incoming charging requests.</p>
+      </div>
+      <span class="spacer"></span>
+      <div class="row" style="gap:8px">
+        <button class="chip active" onclick="applyFilter('all',this)">All</button>
+        <button class="chip" onclick="applyFilter('pending',this)">Pending</button>
+        <button class="chip" onclick="applyFilter('confirmed',this)">Confirmed</button>
+        <button class="chip" onclick="applyFilter('rejected',this)">Rejected</button>
+        <button class="btn btn-ghost" style="padding:6px 14px;font-size:13px" onclick="loadBookings()">🔄 Refresh</button>
+      </div>
+    </div>
+
+    <div id="loadingMsg" class="card" style="padding:32px;text-align:center;color:var(--text-2)">Loading bookings…</div>
+    <div class="card" id="tableWrap" style="display:none">
+      <table class="table">
+        <thead><tr><th>User</th><th>Station / Slot</th><th>Date &amp; Time</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="reqBody"></tbody>
+      </table>
+    </div>
+    <div id="emptyMsg" style="display:none;padding:48px;text-align:center;color:var(--text-2)">
+      <div style="font-size:40px;margin-bottom:12px">📭</div>
+      <div style="font-weight:600">No bookings found</div>
+    </div>
+  </main>
+</div>
+
+<script src="../js/script.js"></script>
+<script src="../js/api.js"></script>
+<script>
+  if (!API.requireAuth(true)) throw new Error("not authenticated");
+
+  let allBookings  = [];
+  let activeFilter = 'all';
+
+  const statusBadge = { pending:'badge-warn', confirmed:'badge-mint', rejected:'badge-danger', completed:'badge-gray' };
+  const statusLabel = { pending:'Pending', confirmed:'Confirmed', rejected:'Rejected', completed:'Completed' };
+
+  function applyFilter(f, btn) {
+    activeFilter = f;
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    const list = f === 'all' ? allBookings : allBookings.filter(b => b.status === f);
+    renderTable(list);
+  }
+
+  function renderTable(list) {
+    const tbody = document.getElementById('reqBody');
+    tbody.innerHTML = '';
+
+    document.getElementById('loadingMsg').style.display = 'none';
+
+    if (list.length === 0) {
+      document.getElementById('tableWrap').style.display = 'none';
+      document.getElementById('emptyMsg').style.display  = 'block';
+      return;
+    }
+    document.getElementById('emptyMsg').style.display  = 'none';
+    document.getElementById('tableWrap').style.display = '';
+
+    list.forEach(b => {
+      const slotDate  = b.slot?.date || '—';
+      const slotStart = b.slot?.start_time?.substring(0,5) || '';
+      const slotEnd   = b.slot?.end_time?.substring(0,5) || '';
+      const badge     = statusBadge[b.status] || 'badge-gray';
+      const label     = statusLabel[b.status] || b.status;
+      const isPending = b.status === 'pending';
+      const isConfirmed = b.status === 'confirmed';
+
+      let actionsHtml = '';
+      if (isPending) {
+        actionsHtml = `
+          <div class="row" style="gap:6px;flex-wrap:wrap">
+            <button class="btn btn-primary" style="padding:6px 14px;font-size:12px"
+              onclick="updateStatus(${b.id},'confirmed',this)">✓ Approve</button>
+            <button class="btn btn-ghost" style="padding:6px 14px;font-size:12px;color:var(--danger)"
+              onclick="updateStatus(${b.id},'rejected',this)">✕ Reject</button>
+          </div>`;
+      } else if (isConfirmed) {
+        actionsHtml = `
+          <button class="btn btn-primary" style="padding:6px 14px;font-size:12px"
+            onclick="updateStatus(${b.id},'completed',this)">✓ Mark complete</button>
+          <div class="muted" style="font-size:10px;margin-top:6px">When the session ends</div>`;
+      } else {
+        actionsHtml = '<span class="muted" style="font-size:12px">No action</span>';
+      }
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>
+          <b>${b.full_name}</b>
+          <div class="muted" style="font-size:11px">${b.phone}</div>
+          <div class="muted" style="font-size:11px">${b.email}</div>
+        </td>
+        <td>
+          <b>${b.station?.name || '—'}</b>
+          <div class="muted" style="font-size:11px">${b.station?.location_text || ''}</div>
+        </td>
+        <td>${slotDate}<br><span class="muted" style="font-size:12px">${slotStart} – ${slotEnd}</span></td>
+        <td><span class="badge ${badge}">${label}</span></td>
+        <td>${actionsHtml}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function updateStatus(bookingId, newStatus, btn) {
+    const row = btn.closest('tr');
+    row.querySelectorAll('button').forEach(b => b.disabled = true);
+
+    try {
+      const res = await API.apiPatch(`/owner/bookings/${bookingId}/status/`, { status: newStatus });
+      if (!res) return;
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || 'Update failed'); row.querySelectorAll('button').forEach(b => b.disabled = false); return; }
+
+      toast(`Booking ${newStatus} ⚡`);
+      // Update in-memory list
+      const idx = allBookings.findIndex(b => b.id === bookingId);
+      if (idx !== -1) allBookings[idx].status = newStatus;
+      const filtered = activeFilter === 'all' ? allBookings : allBookings.filter(b => b.status === activeFilter);
+      renderTable(filtered);
+    } catch (err) {
+      toast('Network error');
+      row.querySelectorAll('button').forEach(b => b.disabled = false);
+    }
+  }
+
+  async function loadBookings() {
+    document.getElementById('loadingMsg').style.display = 'block';
+    document.getElementById('loadingMsg').textContent   = 'Loading bookings…';
+    document.getElementById('tableWrap').style.display  = 'none';
+    document.getElementById('emptyMsg').style.display   = 'none';
+
+    try {
+      const res = await API.apiGet('/owner/bookings/');
+      if (!res) return;
+      if (!res.ok) { document.getElementById('loadingMsg').textContent = 'Failed to load bookings.'; return; }
+      allBookings = await res.json();
+      const filtered = activeFilter === 'all' ? allBookings : allBookings.filter(b => b.status === activeFilter);
+      renderTable(filtered);
+    } catch (err) {
+      document.getElementById('loadingMsg').textContent = 'Network error. Is the backend running?';
+    }
+  }
+
+  loadBookings();
+</script>
+</body>
+</html>

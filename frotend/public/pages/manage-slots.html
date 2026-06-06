@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>HapticEV — Manage Slots</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/style.css"/>
+<style>
+  .rate-display { background:rgba(0,161,155,.08);border:1px solid rgba(0,161,155,.25);border-radius:10px;padding:16px 20px;margin-bottom:16px; }
+  .rate-display .rate-val { font-size:32px;font-weight:700;color:var(--primary-2);font-family:'Poppins',sans-serif; }
+  .rate-display .rate-label { font-size:12px;color:var(--text-2);margin-top:2px; }
+  .pricing-section { border-top:1px dashed var(--border);padding-top:18px;margin-top:6px; }
+  .payment-methods { display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px; }
+  .pay-method-chip { display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:13px;transition:all .2s; }
+  .pay-method-chip:hover { border-color:var(--primary);background:rgba(0,161,155,.06); }
+  .pay-method-chip.selected { border-color:var(--primary);background:rgba(0,161,155,.12);color:var(--primary-2); }
+  .pay-method-chip input[type=radio] { accent-color:var(--primary); }
+</style>
+</head>
+<body>
+<div class="owner-shell">
+  <aside class="sidebar">
+    <a class="brand" href="landing.html"><span class="brand-logo">⚡</span><div><div>Station Manager</div><div style="font-size:10px;color:var(--text-2)">HAPTICEV PARTNER</div></div></a>
+    <a class="side-link" href="owner-dashboard.html">📊 Dashboard</a>
+    <a class="side-link" href="add-station.html">➕ Add Station</a>
+    <a class="side-link active" href="manage-slots.html">🔌 Manage Slots</a>
+    <a class="side-link" href="booking-requests.html">🔔 Booking Requests</a>
+    <a class="side-link" href="scanner.html">📷 QR Scanner</a>
+    <a class="side-link danger" href="#" onclick="API.auth.clearSession();location.href='login.html'">⎋ Logout</a>
+  </aside>
+  <main class="owner-main">
+    <h1 style="font-size:32px">Manage Slots & Pricing</h1>
+    <p class="muted mb-3">Create bookable time slots and set your hourly rate for each station.</p>
+
+    <div id="errorBox"   style="display:none;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);color:#ef4444;padding:10px 14px;border-radius:8px;font-size:14px;margin-bottom:16px"></div>
+    <div id="successBox" style="display:none;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.4);color:#22c55e;padding:10px 14px;border-radius:8px;font-size:14px;margin-bottom:16px"></div>
+
+    <!-- ── PRICING SECTION ─────────────────────────────────────────────────── -->
+    <div class="card mb-3" style="max-width:860px">
+      <div class="row" style="align-items:center;margin-bottom:16px">
+        <div>
+          <h3 style="margin:0">💰 Station Pricing</h3>
+          <p class="muted" style="font-size:12px;margin:4px 0 0">Set the hourly rate users pay when booking a slot at your station.</p>
+        </div>
+      </div>
+
+      <div class="grid-2" style="gap:24px;align-items:end">
+        <div>
+          <div class="field" style="margin-bottom:0">
+            <label>Select Station to Configure</label>
+            <select class="select" id="pStation" onchange="loadStationRate()">
+              <option value="">Loading stations…</option>
+            </select>
+          </div>
+        </div>
+        <div id="ratePanel" style="display:none">
+          <div class="rate-display">
+            <div class="rate-val" id="currentRate">₹—</div>
+            <div class="rate-label">Current rate per hour · visible to all users</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="priceForm" style="display:none;margin-top:16px" class="pricing-section">
+        <div class="grid-2" style="gap:16px;align-items:end">
+          <div class="field" style="margin-bottom:0">
+            <label>New Hourly Rate (₹) *</label>
+            <div style="position:relative">
+              <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-2);font-weight:600">₹</span>
+              <input class="input" id="pPrice" type="number" min="0" step="0.50" placeholder="e.g. 80" style="padding-left:28px"/>
+            </div>
+            <div class="muted" style="font-size:11px;margin-top:4px">Users see this rate when browsing and booking slots.</div>
+          </div>
+          <div>
+            <button class="btn btn-primary" onclick="updateStationRate()" id="rateBtn" style="width:100%">
+              💾 Save Hourly Rate
+            </button>
+          </div>
+        </div>
+        <!-- Payment method info shown to users -->
+        <div style="margin-top:18px">
+          <div class="muted" style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px">Accepted Payment Methods at Your Station</div>
+          <div class="payment-methods">
+            <label class="pay-method-chip selected"><input type="checkbox" checked disabled style="accent-color:var(--primary)"> 💵 Pay at Station</label>
+            <label class="pay-method-chip selected"><input type="checkbox" checked disabled style="accent-color:var(--primary)"> 📱 UPI</label>
+            <label class="pay-method-chip selected"><input type="checkbox" checked disabled style="accent-color:var(--primary)"> 💳 Debit / Credit Card</label>
+            <label class="pay-method-chip selected"><input type="checkbox" checked disabled style="accent-color:var(--primary)"> 🏦 Net Banking</label>
+          </div>
+          <p class="muted" style="font-size:11px;margin-top:8px">All payment methods are enabled by default. Users choose their method at checkout.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLOT CREATION ───────────────────────────────────────────────────── -->
+    <div class="grid-2" style="gap:24px;align-items:start;max-width:860px">
+
+      <!-- Create slots form -->
+      <div class="card">
+        <h3 class="mb-3">🔌 Create Time Slots</h3>
+        <form id="slotForm">
+          <div class="field">
+            <label>Station *</label>
+            <select class="select" id="fStation" required onchange="syncPricingStation()">
+              <option value="">Loading stations…</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Date *</label>
+            <input class="input" id="fDate" type="date" required/>
+          </div>
+          <div class="field">
+            <label>Capacity per slot (cars) *</label>
+            <input class="input" id="fCapacity" type="number" value="2" min="1" max="20" required/>
+          </div>
+
+          <div class="muted" style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin:12px 0 8px">Time Ranges</div>
+          <div id="timeRanges">
+            <div class="time-range-row row" style="gap:8px;margin-bottom:8px">
+              <input class="input" type="time" value="09:00" style="flex:1" placeholder="Start"/>
+              <span class="muted" style="line-height:38px">to</span>
+              <input class="input" type="time" value="10:00" style="flex:1" placeholder="End"/>
+              <button type="button" class="icon-btn" style="color:var(--danger)" onclick="removeRow(this)">✕</button>
+            </div>
+          </div>
+          <button type="button" class="btn btn-ghost" style="padding:6px 14px;font-size:13px;margin-bottom:12px" onclick="addTimeRow()">＋ Add Time Range</button>
+
+          <button class="btn btn-primary btn-block" type="submit" id="createBtn">Create Slots ⚡</button>
+        </form>
+      </div>
+
+      <!-- Existing slots preview -->
+      <div class="card">
+        <div class="row mb-2">
+          <h3>Slots Preview</h3>
+          <span class="spacer"></span>
+          <button class="btn btn-ghost" style="padding:6px 14px;font-size:12px" onclick="previewSlots()">🔄 Load</button>
+        </div>
+        <p class="muted" style="font-size:12px;margin-bottom:12px">Select a station + date above then click Load.</p>
+        <div class="slot-grid" id="previewGrid">
+          <div class="muted" style="font-size:13px;padding:8px 0">No preview loaded.</div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="../js/script.js"></script>
+<script src="../js/api.js"></script>
+<script>
+  if (!API.requireAuth(true)) throw new Error("not authenticated");
+
+  // Set default date to today
+  document.getElementById('fDate').value = new Date().toISOString().split('T')[0];
+
+  function showError(msg)   { const b = document.getElementById('errorBox');   b.textContent = msg; b.style.display = msg ? 'block' : 'none'; document.getElementById('successBox').style.display='none'; }
+  function showSuccess(msg) { const b = document.getElementById('successBox'); b.textContent = msg; b.style.display = msg ? 'block' : 'none'; document.getElementById('errorBox').style.display='none'; }
+
+  let stationsList = [];
+
+  // ── Load owner's stations into both dropdowns ────────────────────────────
+  async function loadStations() {
+    try {
+      const res = await API.apiGet('/owner/stations/');
+      if (!res || !res.ok) return;
+      stationsList = await res.json();
+
+      const opts = stationsList.length === 0
+        ? '<option value="">No stations yet — add one first</option>'
+        : stationsList.map(s => `<option value="${s.id}" data-price="${s.price_per_hour || ''}">${s.name}</option>`).join('');
+
+      document.getElementById('fStation').innerHTML = opts;
+      document.getElementById('pStation').innerHTML = stationsList.length === 0
+        ? '<option value="">No stations yet — add one first</option>'
+        : '<option value="">— Select a station —</option>' + stationsList.map(s => `<option value="${s.id}" data-price="${s.price_per_hour || ''}">${s.name}</option>`).join('');
+    } catch {}
+  }
+
+  // ── Load current rate for selected station ───────────────────────────────
+  function loadStationRate() {
+    const sel = document.getElementById('pStation');
+    const sid = sel.value;
+    const panel    = document.getElementById('ratePanel');
+    const priceForm = document.getElementById('priceForm');
+
+    if (!sid) {
+      panel.style.display = 'none';
+      priceForm.style.display = 'none';
+      return;
+    }
+
+    const opt = sel.options[sel.selectedIndex];
+    const price = opt.dataset.price;
+
+    panel.style.display = 'block';
+    priceForm.style.display = 'block';
+
+    if (price) {
+      document.getElementById('currentRate').textContent = `₹${parseFloat(price).toFixed(0)}/hr`;
+      document.getElementById('pPrice').value = parseFloat(price).toFixed(2);
+    } else {
+      document.getElementById('currentRate').textContent = '₹—';
+      document.getElementById('pPrice').value = '';
+      document.getElementById('pPrice').placeholder = 'Not set yet — add a rate';
+    }
+  }
+
+  // ── Update station hourly rate via PATCH ─────────────────────────────────
+  async function updateStationRate() {
+    const sid   = document.getElementById('pStation').value;
+    const price = document.getElementById('pPrice').value;
+
+    if (!sid)    { showError('Please select a station first.'); return; }
+    if (!price || parseFloat(price) < 0) { showError('Enter a valid rate (₹ per hour).'); return; }
+
+    const btn = document.getElementById('rateBtn');
+    btn.disabled    = true;
+    btn.textContent = 'Saving…';
+
+    try {
+      const res = await API.apiPatch(`/owner/stations/${sid}/`, {
+        price_per_hour: parseFloat(price)
+      });
+
+      if (!res) return;
+      const data = await res.json();
+
+      if (!res.ok) {
+        showError(data.error || 'Failed to update rate.');
+        return;
+      }
+
+      // Update the in-memory list + option data-price attribute
+      const newPrice = data.station?.price_per_hour || price;
+      stationsList = stationsList.map(s => s.id === parseInt(sid) ? { ...s, price_per_hour: newPrice } : s);
+
+      // Refresh both dropdowns with updated price
+      const sel = document.getElementById('pStation');
+      const opt = sel.options[sel.selectedIndex];
+      opt.dataset.price = newPrice;
+
+      const fSel = document.getElementById('fStation');
+      Array.from(fSel.options).forEach(o => {
+        if (o.value === sid) o.dataset.price = newPrice;
+      });
+
+      document.getElementById('currentRate').textContent = `₹${parseFloat(newPrice).toFixed(0)}/hr`;
+      showSuccess(`✅ Hourly rate updated to ₹${parseFloat(newPrice).toFixed(0)}/hr — users can now see this price when booking.`);
+
+    } catch {
+      showError('Network error. Make sure the backend is running on localhost:8000.');
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = '💾 Save Hourly Rate';
+    }
+  }
+
+  // ── Sync pricing dropdown when slot creation station changes ────────────
+  function syncPricingStation() {
+    const fSid = document.getElementById('fStation').value;
+    const pSel = document.getElementById('pStation');
+    if (fSid) {
+      pSel.value = fSid;
+      loadStationRate();
+    }
+  }
+
+  // ── Time range rows ──────────────────────────────────────────────────────
+  function addTimeRow() {
+    const container = document.getElementById('timeRanges');
+    const div = document.createElement('div');
+    div.className = 'time-range-row row';
+    div.style.cssText = 'gap:8px;margin-bottom:8px';
+    div.innerHTML = `
+      <input class="input" type="time" value="09:00" style="flex:1"/>
+      <span class="muted" style="line-height:38px">to</span>
+      <input class="input" type="time" value="10:00" style="flex:1"/>
+      <button type="button" class="icon-btn" style="color:var(--danger)" onclick="removeRow(this)">✕</button>`;
+    container.appendChild(div);
+  }
+
+  function removeRow(btn) {
+    const rows = document.querySelectorAll('.time-range-row');
+    if (rows.length <= 1) { toast('Need at least one time range'); return; }
+    btn.closest('.time-range-row').remove();
+  }
+
+  function getTimeRanges() {
+    const rows = document.querySelectorAll('.time-range-row');
+    const ranges = [];
+    rows.forEach(row => {
+      const inputs = row.querySelectorAll('input[type="time"]');
+      if (inputs.length === 2) {
+        ranges.push({ start_time: inputs[0].value, end_time: inputs[1].value });
+      }
+    });
+    return ranges;
+  }
+
+  // ── Preview existing slots ───────────────────────────────────────────────
+  async function previewSlots() {
+    const stationId = document.getElementById('fStation').value;
+    const date      = document.getElementById('fDate').value;
+    if (!stationId || !date) { toast('Select a station and date first'); return; }
+
+    const grid = document.getElementById('previewGrid');
+    grid.innerHTML = '<div class="muted" style="font-size:13px">Loading…</div>';
+
+    try {
+      const res = await API.apiGet(`/stations/${stationId}/slots/?date=${date}`);
+      if (!res || !res.ok) { grid.innerHTML = '<div class="muted">Failed to load.</div>'; return; }
+      const data  = await res.json();
+      const slots = data.slots || [];
+      grid.innerHTML = '';
+
+      if (slots.length === 0) {
+        grid.innerHTML = '<div class="muted" style="font-size:13px">No slots for this date yet.</div>';
+        return;
+      }
+      slots.forEach(s => {
+        const el = document.createElement('div');
+        el.className = 'slot ' + (s.is_full ? 'occupied' : 'available');
+        const start = s.start_time.substring(0,5);
+        const end   = s.end_time.substring(0,5);
+        el.innerHTML = `
+          <div class="slot-num" style="font-size:11px">${start}</div>
+          <div class="slot-icon">⚡</div>
+          <div class="slot-status" style="font-size:10px">${s.available_spots}/${s.capacity}</div>`;
+        grid.appendChild(el);
+      });
+    } catch { grid.innerHTML = '<div class="muted">Network error.</div>'; }
+  }
+
+  // ── Submit: create bulk slots ────────────────────────────────────────────
+  document.getElementById('slotForm').onsubmit = async e => {
+    e.preventDefault();
+    showError('');
+
+    const stationId = document.getElementById('fStation').value;
+    const date      = document.getElementById('fDate').value;
+    const capacity  = parseInt(document.getElementById('fCapacity').value);
+    const ranges    = getTimeRanges();
+
+    if (!stationId) { showError('Please select a station.'); return; }
+    if (ranges.length === 0) { showError('Add at least one time range.'); return; }
+
+    const btn = document.getElementById('createBtn');
+    btn.disabled = true; btn.textContent = 'Creating…';
+
+    try {
+      const res = await API.apiPost('/owner/slots/', {
+        station:     parseInt(stationId),
+        date,
+        capacity,
+        time_ranges: ranges,
+      });
+
+      if (!res) return;
+      const data = await res.json();
+
+      if (!res.ok) {
+        showError(data.error || 'Failed to create slots.');
+        return;
+      }
+
+      const created = data.created?.length || 0;
+      const errors  = data.errors?.length  || 0;
+      showSuccess(`${created} slot(s) created successfully!${errors > 0 ? ` (${errors} skipped — may already exist)` : ''}`);
+      previewSlots();
+
+    } catch (err) {
+      showError('Network error. Make sure the backend is running on localhost:8000.');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Create Slots ⚡';
+    }
+  };
+
+  loadStations();
+</script>
+</body>
+</html>

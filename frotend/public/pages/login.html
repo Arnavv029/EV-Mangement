@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>HapticEV — Sign In</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/style.css"/>
+<style>
+  .input.field-error          { border-color:#ef4444!important;box-shadow:0 0 0 3px rgba(239,68,68,.15); }
+  .field-err-msg              { color:#ef4444;font-size:12px;margin-top:4px;display:none; }
+  .field-err-msg.show         { display:block; }
+  .input.field-ok             { border-color:#22c55e!important; }
+  .shake                      { animation:shake .35s ease; }
+  @keyframes shake            { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-6px)} 40%,80%{transform:translateX(6px)} }
+</style>
+</head>
+<body>
+<div class="split">
+  <aside class="left" style="background-image:linear-gradient(135deg,rgba(31,41,51,.78) 0%,rgba(0,127,122,.55) 100%),url('../images/ev-hero.jpg');background-size:cover;background-position:center">
+    <a class="brand" style="color:#fff" href="landing.html"><span class="brand-logo">⚡</span> HapticEV</a>
+    <div>
+      <div style="color:#7BE3DC;font-weight:600;letter-spacing:.15em;font-size:12px;text-transform:uppercase;margin-bottom:14px">Smart EV Mobility</div>
+      <h1 style="font-size:48px;line-height:1.05;color:#fff;margin-bottom:18px">Powering Smart EV<br/>Mobility.</h1>
+      <p style="color:rgba(255,255,255,.85);max-width:440px;line-height:1.6">Experience seamless EV charging, smart slot booking, and QR-verified access to stations.</p>
+    </div>
+    <div style="display:flex;gap:8px"><span style="width:40px;height:4px;border-radius:4px;background:#7BE3DC"></span><span style="width:14px;height:4px;border-radius:4px;background:rgba(255,255,255,.3)"></span><span style="width:30px;height:4px;border-radius:4px;background:rgba(255,255,255,.3)"></span></div>
+  </aside>
+
+  <main class="right">
+    <div class="login-card">
+      <div class="brand mb-3"><span class="brand-logo">⚡</span> HapticEV<span style="font-size:10px;color:var(--text-2);letter-spacing:.2em;margin-left:8px">SUSTAINABLE MOBILITY</span></div>
+
+      <div class="card">
+        <!-- Role tabs -->
+        <div class="tabs">
+          <button id="tabUser"  class="active" onclick="setRole('user')">EV User</button>
+          <button id="tabOwner"              onclick="setRole('owner')">Station Owner</button>
+        </div>
+        <!-- Mode tabs -->
+        <div class="tabs">
+          <button id="tabSignin" class="active" onclick="setMode('signin')">Sign In</button>
+          <button id="tabSignup"               onclick="setMode('signup')">Create Account</button>
+        </div>
+
+        <h2 id="formTitle" style="color:var(--primary-2);font-size:24px">Welcome Back</h2>
+        <p class="muted mb-2" id="formSub">Enter your credentials to continue.</p>
+
+        <!-- Top-level error banner -->
+        <div id="errorBanner" style="display:none;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.4);color:#ef4444;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px;display:none">
+          <b>⚠</b> <span id="errorBannerMsg"></span>
+        </div>
+
+        <form id="authForm" novalidate>
+          <!-- Full name (signup only) -->
+          <div class="field signup-only" style="display:none">
+            <label>Full Name</label>
+            <input class="input" id="fName" type="text" placeholder="Aarav Sharma" autocomplete="name"/>
+            <div class="field-err-msg" id="errName">Please enter your full name.</div>
+          </div>
+
+          <!-- Email -->
+          <div class="field">
+            <label>Email Address</label>
+            <input class="input" id="fEmail" type="email" placeholder="name@example.com" autocomplete="email" required/>
+            <div class="field-err-msg" id="errEmail">Please enter a valid email address.</div>
+          </div>
+
+          <!-- Phone (signup only) -->
+          <div class="field signup-only" style="display:none">
+            <label>Phone Number</label>
+            <input class="input" id="fPhone" type="tel" placeholder="+91 98765 43210" autocomplete="tel"/>
+            <div class="field-err-msg" id="errPhone"></div>
+          </div>
+
+          <!-- Password -->
+          <div class="field" style="position:relative">
+            <label>Password</label>
+            <div style="position:relative">
+              <input class="input" id="fPassword" type="password" placeholder="••••••••" autocomplete="current-password" required style="padding-right:44px"/>
+              <button type="button" id="togglePwd" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-2);font-size:16px" onclick="togglePassword()">👁</button>
+            </div>
+            <div class="field-err-msg" id="errPassword">Password must be at least 6 characters.</div>
+          </div>
+
+          <!-- Confirm password (signup only) -->
+          <div class="field signup-only" style="display:none">
+            <label>Confirm Password</label>
+            <input class="input" id="fConfirm" type="password" placeholder="••••••••" autocomplete="new-password"/>
+            <div class="field-err-msg" id="errConfirm">Passwords do not match.</div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block" id="submitBtn" style="margin-top:8px">Sign In to HapticEV</button>
+        </form>
+
+        <p class="muted text-center mt-3" id="switcher">
+          New to HapticEV? <a href="#" id="switchLink" style="color:var(--primary-2);font-weight:600">Create Account</a>
+        </p>
+      </div>
+      <p class="muted text-center mt-3" style="font-size:11px">© 2026 HapticEV. Sustainable Mobility.</p>
+    </div>
+  </main>
+</div>
+
+<script src="../js/script.js"></script>
+<script src="../js/api.js"></script>
+<script>
+  // ── Redirect if already logged in ───────────────────────────────────────
+  if (API.auth.isLoggedIn()) {
+    const u = API.auth.getUser();
+    location.href = u && u.role === 'owner' ? 'owner-dashboard.html' : 'home.html';
+  }
+
+  let role = 'user', mode = 'signin';
+
+  // ── Tab helpers ──────────────────────────────────────────────────────────
+  function setRole(r) {
+    role = r;
+    tabUser.classList.toggle('active',  r === 'user');
+    tabOwner.classList.toggle('active', r === 'owner');
+    clearErrors();
+  }
+
+  function setMode(m) {
+    mode = m;
+    tabSignin.classList.toggle('active', m === 'signin');
+    tabSignup.classList.toggle('active', m === 'signup');
+    document.querySelectorAll('.signup-only').forEach(el => el.style.display = m === 'signup' ? '' : 'none');
+    formTitle.textContent  = m === 'signup' ? 'Create Your Account' : 'Welcome Back';
+    formSub.textContent    = m === 'signup' ? 'Join the future of electric mobility.' : 'Enter your credentials to continue.';
+    submitBtn.textContent  = m === 'signup' ? 'Create Account' : 'Sign In to HapticEV';
+    switcher.innerHTML     = m === 'signup'
+      ? 'Already a member? <a href="#" id="switchLink" style="color:var(--primary-2);font-weight:600">Sign In</a>'
+      : 'New to HapticEV? <a href="#" id="switchLink" style="color:var(--primary-2);font-weight:600">Create Account</a>';
+    document.getElementById('switchLink').onclick = e => { e.preventDefault(); setMode(m === 'signup' ? 'signin' : 'signup'); };
+    clearErrors();
+  }
+
+  // ── Password visibility toggle ────────────────────────────────────────────
+  function togglePassword() {
+    const inp = document.getElementById('fPassword');
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+  }
+
+  // ── Error helpers ────────────────────────────────────────────────────────
+  function setFieldError(inputId, errId, msg) {
+    const inp = document.getElementById(inputId);
+    const err = document.getElementById(errId);
+    inp.classList.add('field-error');
+    inp.classList.remove('field-ok');
+    if (msg) err.textContent = msg;
+    err.classList.add('show');
+  }
+
+  function setFieldOk(inputId, errId) {
+    const inp = document.getElementById(inputId);
+    const err = document.getElementById(errId);
+    inp.classList.remove('field-error');
+    inp.classList.add('field-ok');
+    err.classList.remove('show');
+  }
+
+  function clearErrors() {
+    ['fEmail','fPassword','fName','fPhone','fConfirm'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.classList.remove('field-error','field-ok'); }
+    });
+    ['errEmail','errPassword','errName','errPhone','errConfirm'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('show');
+    });
+    showBanner('');
+  }
+
+  function showBanner(msg) {
+    const banner = document.getElementById('errorBanner');
+    const msgEl  = document.getElementById('errorBannerMsg');
+    if (msg) {
+      msgEl.textContent    = msg;
+      banner.style.display = 'block';
+      banner.classList.add('shake');
+      setTimeout(() => banner.classList.remove('shake'), 400);
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+
+  // Real-time email validation
+  document.getElementById('fEmail').addEventListener('blur', () => {
+    const v = document.getElementById('fEmail').value.trim();
+    if (v && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) setFieldOk('fEmail','errEmail');
+    else if (v) setFieldError('fEmail','errEmail','Please enter a valid email address.');
+  });
+
+  // Real-time password validation
+  document.getElementById('fPassword').addEventListener('input', () => {
+    const v = document.getElementById('fPassword').value;
+    if (v.length >= 6) setFieldOk('fPassword','errPassword');
+    else if (v.length > 0) setFieldError('fPassword','errPassword','Password must be at least 6 characters.');
+  });
+
+  // ── Form submit ──────────────────────────────────────────────────────────
+  authForm.onsubmit = async e => {
+    e.preventDefault();
+    clearErrors();
+    let valid = true;
+
+    const email    = document.getElementById('fEmail').value.trim();
+    const password = document.getElementById('fPassword').value;
+
+    // Validate email
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setFieldError('fEmail','errEmail','Please enter a valid email address.');
+      valid = false;
+    }
+
+    // Validate password
+    if (!password || password.length < 6) {
+      setFieldError('fPassword','errPassword','Password must be at least 6 characters.');
+      valid = false;
+    }
+
+    if (mode === 'signup') {
+      const confirm = document.getElementById('fConfirm').value;
+      if (password !== confirm) {
+        setFieldError('fConfirm','errConfirm','Passwords do not match.');
+        valid = false;
+      }
+    }
+
+    if (!valid) return;
+
+    submitBtn.disabled    = true;
+    submitBtn.textContent = mode === 'signup' ? 'Creating Account…' : 'Signing In…';
+
+    try {
+      let res;
+      if (mode === 'signup') {
+        res = await API.apiPost('/auth/register/', {
+          email,
+          password,
+          role,
+          full_name: document.getElementById('fName').value.trim(),
+          phone:     document.getElementById('fPhone').value.trim(),
+        });
+      } else {
+        res = await API.apiPost('/auth/login/', { email, password });
+      }
+
+      if (!res) return; // 401 redirect already triggered
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        // Try to map server errors to fields
+        const msg = data.error || data.detail || '';
+        if (msg.toLowerCase().includes('email') || msg.toLowerCase().includes('credential') || msg.toLowerCase().includes('invalid')) {
+          setFieldError('fEmail',    'errEmail',    ' ');        // highlight field
+          setFieldError('fPassword', 'errPassword', ' ');        // highlight both
+          showBanner(msg || 'Incorrect email or password. Please try again.');
+        } else {
+          showBanner(msg || 'Something went wrong. Please try again.');
+        }
+        return;
+      }
+
+      // ── Success ────────────────────────────────────────────────────────
+      setFieldOk('fEmail', 'errEmail');
+      setFieldOk('fPassword', 'errPassword');
+      API.auth.setSession(data.tokens, data.user);
+      toast(data.user.role === 'owner' ? 'Welcome, Partner! ⚡' : 'Welcome to HapticEV ⚡');
+      setTimeout(() => {
+        location.href = data.user.role === 'owner' ? 'owner-dashboard.html' : 'home.html';
+      }, 600);
+
+    } catch {
+      showBanner('Network error — make sure the backend is running on localhost:8000.');
+    } finally {
+      submitBtn.disabled    = false;
+      submitBtn.textContent = mode === 'signup' ? 'Create Account' : 'Sign In to HapticEV';
+    }
+  };
+
+  // Init mode
+  setMode('signin');
+</script>
+</body>
+</html>
