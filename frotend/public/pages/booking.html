@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>HapticEV — Secure Your Slot</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/style.css"/>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<style>
+  /* ── Payment method cards ── */
+  .pay-grid        { display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px; }
+  .pay-card        { display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 10px;border:2px solid var(--border);border-radius:12px;cursor:pointer;transition:all .18s;user-select:none;text-align:center; }
+  .pay-card:hover  { border-color:rgba(0,161,155,.5);background:rgba(0,161,155,.04); }
+  .pay-card.active { border-color:var(--primary);background:rgba(0,161,155,.1);box-shadow:0 0 0 3px rgba(0,161,155,.15); }
+  .pay-card input  { display:none; }
+  .pay-icon        { font-size:26px;line-height:1; }
+  .pay-title       { font-size:12px;font-weight:700;color:var(--text); }
+  .pay-sub         { font-size:10px;color:var(--text-2); }
+
+  /* ── Payment detail panels ── */
+  .pay-panel       { display:none;background:rgba(0,161,155,.05);border:1px solid rgba(0,161,155,.2);border-radius:10px;padding:16px;margin-top:12px; }
+  .pay-panel.show  { display:block; }
+
+  /* ── Card number formatting ── */
+  .card-grid       { display:grid;grid-template-columns:1fr 1fr;gap:12px; }
+
+  /* ── Price summary ── */
+  .price-box       { background:rgba(0,161,155,.07);border:1px solid rgba(0,161,155,.25);border-radius:12px;padding:18px; }
+  .price-row       { display:flex;justify-content:space-between;font-size:13px;color:var(--text-2);padding:5px 0; }
+  .price-row.total { border-top:1px dashed rgba(0,161,155,.35);margin-top:8px;padding-top:12px;font-size:16px;font-weight:700;color:var(--primary-2); }
+  .price-row.total span:last-child { font-size:22px; }
+
+  /* ── Section label ── */
+  .sec-label       { font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--primary-2);margin:20px 0 10px; }
+  hr.dash          { border:none;border-top:1px dashed var(--border);margin:18px 0; }
+
+  /* ── Policy box ── */
+  .policy-box      { background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.3);border-radius:10px;padding:14px 16px;font-size:12px;margin-top:10px; }
+  .policy-row      { display:flex;gap:10px;align-items:flex-start;padding:3px 0;color:var(--text-2); }
+  .policy-row b    { color:var(--text);min-width:80px; }
+</style>
+</head>
+<body>
+<nav class="navbar">
+  <a class="brand" href="landing.html"><span class="brand-logo">⚡</span>HapticEV</a>
+  <div class="nav-links">
+    <a href="home.html">Find Stations</a>
+    <a href="history.html" class="active">My Bookings</a>
+  </div>
+  <div class="nav-right">
+    <button class="btn btn-ghost" style="padding:6px 14px;font-size:13px" onclick="history.back()">← Back</button>
+  </div>
+</nav>
+
+<main class="container">
+  <div style="max-width:1100px;margin:0 auto">
+    <h1 style="font-size:40px;margin-bottom:6px">Secure Your Slot</h1>
+    <p class="muted mb-3">Fill your details and pay to confirm your charging session.</p>
+
+    <div id="errorBox" style="display:none;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);color:#ef4444;padding:10px 14px;border-radius:8px;font-size:14px;margin-bottom:16px"></div>
+
+    <div class="grid-2" style="grid-template-columns:1.45fr 1fr;gap:24px">
+
+      <!-- ── LEFT: Form ─────────────────────────────────────────────── -->
+      <div>
+        <div class="card">
+          <form id="bookingForm" novalidate>
+
+            <!-- Personal details -->
+            <div class="sec-label">👤 Personal Details</div>
+            <div class="grid-2">
+              <div class="field"><label>Full Name *</label><input class="input" id="fName" placeholder="Your full name" required/></div>
+              <div class="field"><label>Phone *</label><input class="input" id="fPhone" type="tel" placeholder="+91 98765 43210" required/></div>
+            </div>
+            <div class="field"><label>Email *</label><input class="input" id="fEmail" type="email" required/></div>
+
+            <hr class="dash"/>
+
+            <!-- Vehicle -->
+            <div class="sec-label">🚗 Vehicle Details</div>
+            <div class="grid-2">
+              <div class="field">
+                <label>Vehicle Number</label>
+                <input class="input" id="fVehicleNum" placeholder="e.g. KA 01 AB 1234" maxlength="20"/>
+              </div>
+              <div class="field">
+                <label>Vehicle Type</label>
+                <select class="select" id="fVehicleType">
+                  <option value="">Select type</option>
+                  <option>EV Sedan</option><option>EV Hatchback</option>
+                  <option>EV SUV</option><option>Electric Scooter</option>
+                  <option>Electric Motorcycle</option><option>Electric Auto</option>
+                  <option>Electric Bus</option><option>Other EV</option>
+                </select>
+              </div>
+            </div>
+
+            <hr class="dash"/>
+
+            <!-- Booking summary -->
+            <div class="sec-label">📋 Booking Summary</div>
+            <div class="row" style="flex-wrap:wrap;gap:8px">
+              <span class="chip">📍 <span id="sName">—</span></span>
+              <span class="chip">📅 <span id="sDate">—</span></span>
+              <span class="chip">⏰ <span id="sTime">—</span></span>
+            </div>
+
+            <hr class="dash"/>
+
+            <!-- Price summary -->
+            <div class="sec-label">💰 Price Breakdown</div>
+            <div class="price-box mb-2">
+              <div class="price-row"><span>Charging rate</span><span id="pricePerHour">—</span></div>
+              <div class="price-row"><span>Session duration</span><span id="sessionDuration">—</span></div>
+              <div class="price-row total"><span>Total Amount</span><span id="totalAmount">—</span></div>
+            </div>
+
+            <!-- Cancellation policy -->
+            <div class="policy-box">
+              <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#f59e0b;margin-bottom:8px">⚠ Cancellation & Refund Policy</div>
+              <div class="policy-row"><b>100% refund</b><span>Cancel 30+ min before slot starts</span></div>
+              <div class="policy-row"><b>70% refund</b><span>Cancel within 30 min before slot starts</span></div>
+              <div class="policy-row"><b>50% refund</b><span>Cancel within first 30 min of session</span></div>
+              <div class="policy-row"><b>No refund</b><span>Cancel after 30 min into session</span></div>
+            </div>
+
+            <hr class="dash"/>
+
+            <!-- Razorpay Payment -->
+            <div class="sec-label">💳 Secure Payment via Razorpay</div>
+            <div style="background:rgba(0,161,155,.06);border:1px solid rgba(0,161,155,.25);border-radius:12px;padding:16px;">
+              <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+                <span style="font-size:28px">🔒</span>
+                <div>
+                  <div style="font-weight:700;font-size:14px">Razorpay Secure Checkout</div>
+                  <div style="font-size:12px;color:var(--text-2)">Pay via UPI · Cards · Net Banking · Wallets</div>
+                </div>
+              </div>
+              <div style="font-size:12px;color:var(--text-2);line-height:1.7">
+                ✅ Your details are encrypted &amp; never stored on our server.<br/>
+                ✅ Booking is created only after payment is verified.<br/>
+                ✅ For testing use Razorpay test cards from <a href="https://razorpay.com/docs/payments/payments/test-card-upi-details/" target="_blank" style="color:var(--primary)">razorpay.com/docs</a>
+              </div>
+            </div>
+
+          </form>
+        </div>
+      </div>
+
+      <!-- ── RIGHT: Order summary + Pay button ────────────────────── -->
+      <div>
+        <div class="card" style="padding:0;overflow:hidden;position:sticky;top:24px">
+          <div id="hubImg" style="height:150px;background-image:linear-gradient(135deg,rgba(31,41,51,.6),rgba(0,127,122,.5)),url('../images/ev-hero.jpg');background-size:cover;background-position:center">
+            <h3 style="position:absolute;bottom:14px;left:18px;right:18px;color:#fff;font-size:16px;line-height:1.4" id="hubName">—</h3>
+          </div>
+          <div style="padding:22px">
+            <div class="sec-label" style="margin-top:0">Order Summary</div>
+            <div style="font-size:13px;color:var(--text-2);line-height:2">
+              <div>📍 <span id="summStation">—</span></div>
+              <div>📅 <span id="summDate">—</span></div>
+              <div>⏰ <span id="summTime">—</span></div>
+            </div>
+
+            <div class="price-box mt-3">
+              <div class="price-row total" style="margin-top:0;padding-top:0;border:none">
+                <span>You Pay</span>
+                <span id="sidebarTotal" style="font-size:24px;font-weight:800;color:var(--primary-2)">—</span>
+              </div>
+            </div>
+
+            <div class="card mt-2" style="background:rgba(0,161,155,.06);padding:10px 12px;font-size:11px;color:var(--text-2);border:none;line-height:1.6">
+              🔒 Your payment is processed securely. QR code is generated only after payment confirmation.<br/>
+              ● Booking will be <b>Pending</b> until station owner approves.
+            </div>
+
+            <button class="btn btn-primary btn-block mt-3" form="bookingForm" type="submit" id="confirmBtn" style="font-size:15px;padding:14px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);">
+              🔒 Pay Securely with Razorpay
+            </button>
+            <p class="muted text-center mt-2" style="font-size:11px">QR code generated instantly after payment</p>
+
+            <!-- Test credentials hint -->
+            <div style="margin-top:14px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.35);border-radius:10px;padding:13px 15px;font-size:12px">
+              <div style="font-weight:700;color:#b45309;margin-bottom:8px;font-size:11px;letter-spacing:.06em;text-transform:uppercase">🧪 Razorpay Test Mode Credentials</div>
+              <div style="color:var(--text-2);line-height:1.9">
+                <div><b style="color:var(--text)">UPI ID:</b> <code style="background:rgba(0,0,0,.06);padding:2px 6px;border-radius:4px">success@razorpay</code></div>
+                <div><b style="color:var(--text)">Card No:</b> <code style="background:rgba(0,0,0,.06);padding:2px 6px;border-radius:4px">4111 1111 1111 1111</code></div>
+                <div><b style="color:var(--text)">Expiry:</b> Any future date &nbsp; <b style="color:var(--text)">CVV:</b> Any 3 digits</div>
+                <div><b style="color:var(--text)">OTP:</b> <code style="background:rgba(0,0,0,.06);padding:2px 6px;border-radius:4px">1234</code></div>
+                <div style="margin-top:6px;color:#92400e;font-size:11px">⚠ PhonePe/GPay QR are available in Live mode only. Use UPI ID above for testing.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<footer class="footer">© 2026 HapticEV</footer>
+<script src="../js/script.js"></script>
+<script src="../js/api.js"></script>
+<script>
+  const currentUser = API.requireAuth();
+  if (!currentUser) throw new Error('not authenticated');
+
+  // Pre-fill from logged-in user
+  document.getElementById('fName').value  = ((currentUser.first_name||'') + ' ' + (currentUser.last_name||'')).trim() || currentUser.username || '';
+  document.getElementById('fEmail').value = currentUser.email || '';
+  document.getElementById('fPhone').value = currentUser.phone || '';
+
+  // Load pending booking from sessionStorage
+  let pending = null;
+  try { pending = JSON.parse(sessionStorage.getItem('hev_booking_pending') || 'null'); } catch {}
+
+  if (!pending || !pending.slotId) {
+    toast('No slot selected — redirecting…');
+    setTimeout(() => location.href = 'home.html', 1000);
+  } else {
+    populate();
+  }
+
+  function populate() {
+    document.getElementById('sName').textContent      = pending.stationName;
+    document.getElementById('sDate').textContent      = pending.slotDate;
+    document.getElementById('sTime').textContent      = pending.slotStart + ' – ' + pending.slotEnd;
+    document.getElementById('hubName').textContent    = pending.stationName;
+    document.getElementById('summStation').textContent = pending.stationName;
+    document.getElementById('summDate').textContent   = pending.slotDate;
+    document.getElementById('summTime').textContent   = pending.slotStart + ' – ' + pending.slotEnd;
+
+    if (pending.imageUrl) {
+      document.getElementById('hubImg').style.backgroundImage =
+        `linear-gradient(135deg,rgba(31,41,51,.5),rgba(0,127,122,.4)),url('${pending.imageUrl}')`;
+    }
+
+    // Calculate price
+    let totalAmt = null;
+    if (pending.pricePerHour) {
+      const price = parseFloat(pending.pricePerHour);
+      const [sh, sm] = pending.slotStart.split(':').map(Number);
+      const [eh, em] = pending.slotEnd.split(':').map(Number);
+      let hrs = Math.max(1, Math.round(((eh * 60 + em) - (sh * 60 + sm)) / 60));
+      totalAmt = price * hrs;
+
+      document.getElementById('pricePerHour').textContent   = `₹${price.toFixed(0)}/hr`;
+      document.getElementById('sessionDuration').textContent = `${hrs} hr${hrs > 1 ? 's' : ''}`;
+      document.getElementById('totalAmount').textContent     = `₹${totalAmt.toFixed(2)}`;
+      document.getElementById('sidebarTotal').textContent    = `₹${totalAmt.toFixed(2)}`;
+      document.getElementById('confirmBtn').textContent      = `Pay ₹${totalAmt.toFixed(2)} →`;
+    } else {
+      document.getElementById('pricePerHour').textContent    = 'Free / Set at station';
+      document.getElementById('sessionDuration').textContent = '—';
+      document.getElementById('totalAmount').textContent     = 'Confirm at station';
+      document.getElementById('sidebarTotal').textContent    = '₹0';
+      document.getElementById('confirmBtn').textContent      = 'Confirm Booking →';
+    }
+  }
+
+  // ── Error helper ─────────────────────────────────────────────────────────
+  function showError(msg) {
+    const b = document.getElementById('errorBox');
+    b.textContent   = msg;
+    b.style.display = msg ? 'block' : 'none';
+    if (msg) b.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // ── Calculate booking amount ──────────────────────────────────────────────
+  function calcAmount() {
+    if (!pending || !pending.pricePerHour) return 0;
+    const price = parseFloat(pending.pricePerHour);
+    const [sh, sm] = pending.slotStart.split(':').map(Number);
+    const [eh, em] = pending.slotEnd.split(':').map(Number);
+    const hrs = Math.max(1, Math.round(((eh * 60 + em) - (sh * 60 + sm)) / 60));
+    return price * hrs;
+  }
+
+  // ── Razorpay flow ────────────────────────────────────────────────────────
+  document.getElementById('bookingForm').onsubmit = async e => {
+    e.preventDefault();
+    if (!pending) return;
+    showError('');
+
+    const btn = document.getElementById('confirmBtn');
+    const amount = calcAmount();
+
+    // Validate basic fields
+    const name  = document.getElementById('fName').value.trim();
+    const phone = document.getElementById('fPhone').value.trim();
+    const email = document.getElementById('fEmail').value.trim();
+    if (!name || !phone || !email) {
+      showError('Please fill in your name, phone and email.');
+      return;
+    }
+
+    btn.disabled    = true;
+    btn.textContent = 'Creating order…';
+
+    // Step 1: Create Razorpay order on backend
+    let orderData;
+    try {
+      const res = await API.apiPost('/payments/razorpay/create-order/', {
+        slot:           pending.slotId,
+        full_name:      name,
+        phone,
+        email,
+        vehicle_number: document.getElementById('fVehicleNum').value.trim(),
+        vehicle_type:   document.getElementById('fVehicleType').value,
+        amount_paid:    amount,
+      });
+      if (!res) { btn.disabled = false; btn.textContent = '🔒 Pay Securely with Razorpay'; return; }
+      orderData = await res.json();
+      if (!res.ok) {
+        showError(orderData.error || 'Failed to create payment order.');
+        btn.disabled = false;
+        btn.textContent = '🔒 Pay Securely with Razorpay';
+        return;
+      }
+    } catch {
+      showError('Network error. Is the backend running?');
+      btn.disabled = false;
+      btn.textContent = '🔒 Pay Securely with Razorpay';
+      return;
+    }
+
+    btn.textContent = 'Opening Razorpay…';
+
+    // Step 2: Open Razorpay Checkout modal
+    const options = {
+      key:         orderData.key_id,
+      amount:      orderData.amount,
+      currency:    orderData.currency || 'INR',
+      name:        'HapticEV',
+      description: `Slot at ${pending.stationName}`,
+      image:       'https://img.icons8.com/fluency/96/electric-car.png',
+      order_id:    orderData.order_id,
+      prefill:     orderData.prefill || {},
+      theme:       { color: '#007F7A' },
+
+      // Enable all payment methods available in test mode
+      config: {
+        display: {
+          preferences: { show_default_blocks: true },
+          blocks: {
+            upi_block: {
+              name: 'Pay via UPI',
+              instruments: [
+                { method: 'upi', flows: ['collect', 'intent'] }
+              ]
+            },
+            card_block: {
+              name: 'Pay via Card',
+              instruments: [
+                { method: 'card', issuers: ['UTIB'], types: ['debit', 'credit'] },
+                { method: 'card' }
+              ]
+            }
+          },
+          sequence: ['block.upi_block', 'block.card_block'],
+        }
+      },
+
+      // Step 3: On success — verify on backend, create booking
+      handler: async function(response) {
+        btn.textContent = 'Verifying payment…';
+        try {
+          const vres = await API.apiPost('/payments/razorpay/verify/', {
+            razorpay_order_id:   response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature:  response.razorpay_signature,
+            attempt_id:          orderData.attempt_id,
+          });
+          if (!vres) return;
+          const vdata = await vres.json();
+          if (!vres.ok) {
+            showError(vdata.error || 'Payment verification failed.');
+            btn.disabled = false;
+            btn.textContent = '🔒 Pay Securely with Razorpay';
+            return;
+          }
+          // Step 4: Success
+          sessionStorage.setItem('hev_last_booking', JSON.stringify(vdata.booking));
+          sessionStorage.removeItem('hev_booking_pending');
+          toast('Payment successful! Booking confirmed!');
+          setTimeout(() => location.href = 'confirmation.html', 500);
+        } catch {
+          showError('Verification network error. Contact support if money was deducted.');
+          btn.disabled = false;
+          btn.textContent = '🔒 Pay Securely with Razorpay';
+        }
+      },
+
+      modal: {
+        ondismiss: function() {
+          toast('Payment cancelled.');
+          btn.disabled    = false;
+          btn.textContent = '🔒 Pay Securely with Razorpay';
+        }
+      }
+    };
+
+    const rzp = new Razorpay(options);
+    rzp.on('payment.failed', function(resp) {
+      showError('Payment failed: ' + (resp.error.description || 'Unknown error'));
+      btn.disabled    = false;
+      btn.textContent = '🔒 Pay Securely with Razorpay';
+    });
+    rzp.open();
+  };
+</script>
+</body>
+</html>

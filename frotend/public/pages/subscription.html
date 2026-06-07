@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>HapticEV — Subscription</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/style.css"/>
+<style>
+  .plan-card { border:1px solid var(--border);border-radius:18px;padding:24px;transition:box-shadow .2s;background:#fff; }
+  .plan-card:hover { box-shadow:0 18px 40px rgba(0,0,0,.07); }
+  .plan-card.popular { border-color:var(--primary); }
+  .plan-card .plan-title { font-size:20px;margin-bottom:8px;font-weight:700; }
+  .plan-card .plan-price { font-size:32px;font-weight:800;color:var(--primary-2);margin:0; }
+  .plan-card .plan-detail { margin:10px 0 0;color:var(--text-2);font-size:14px; }
+  .plan-card .plan-features { margin-top:16px;padding-left:16px; }
+  .plan-card .plan-features li { margin-bottom:10px; }
+  .plan-card button { margin-top:18px; }
+  .subscription-summary { border:1px solid var(--border);border-radius:18px;padding:24px; }
+  .subscription-summary .field { margin-bottom:14px; }
+  .subscription-summary .field label { display:block;font-size:12px;color:var(--text-2);margin-bottom:6px; }
+  .subscription-summary .field .value { font-size:16px;font-weight:700; }
+</style>
+</head>
+<body>
+<div class="owner-shell">
+  <aside class="sidebar">
+    <a class="brand" href="landing.html"><span class="brand-logo">⚡</span><div><div>Station Manager</div><div style="font-size:10px;color:var(--text-2);font-weight:500;letter-spacing:.05em">HAPTICEV PARTNER</div></div></a>
+    <a class="side-link" href="owner-dashboard.html">📊 Dashboard</a>
+    <a class="side-link" href="add-station.html">➕ Add Station</a>
+    <a class="side-link" href="manage-slots.html">🔌 Manage Slots</a>
+    <a class="side-link" href="booking-requests.html">🔔 Booking Requests</a>
+    <a class="side-link" href="scanner.html">📷 QR Scanner</a>
+    <a class="side-link active" href="subscription.html">💳 Subscription</a>
+    <a class="side-link danger" href="#" onclick="API.auth.clearSession();location.href='login.html'">⎋ Logout</a>
+  </aside>
+  <main class="owner-main">
+    <div class="row mb-3" style="align-items:flex-end; gap:16px;">
+      <div>
+        <h1 style="font-size:32px">Subscription & Revenue</h1>
+        <p class="muted">Manage your plan, see included bookings, and review commission details.</p>
+      </div>
+      <button class="btn btn-ghost" onclick="loadSubscription()">🔄 Refresh</button>
+    </div>
+
+    <div id="subscriptionArea" class="grid-2" style="gap:24px;">
+      <div class="subscription-summary card" style="min-width:320px;">
+        <h3 style="margin-top:0">Active Subscription</h3>
+        <div id="noActive" class="muted" style="font-size:14px;">Loading subscription details…</div>
+        <div id="activeSubscription" style="display:none">
+          <div class="field"><label>Plan</label><div class="value" id="subPlan">—</div></div>
+          <div class="field"><label>Status</label><div class="value" id="subStatus">—</div></div>
+          <div class="field"><label>Validity</label><div class="value" id="subPeriod">—</div></div>
+          <div class="field"><label>Included bookings</label><div class="value" id="subBooked">—</div></div>
+          <div class="field"><label>Remaining bookings</label><div class="value" id="subRemaining">—</div></div>
+          <div class="field"><label>Commission owed</label><div class="value" id="subCommission">—</div></div>
+        </div>
+      </div>
+
+      <div class="subscription-summary card" style="min-width:320px;">
+        <h3 style="margin-top:0">Revenue Summary</h3>
+        <div id="revenueLoading" class="muted" style="font-size:14px;">Loading revenue data…</div>
+        <div id="revenueSummary" style="display:none">
+          <div class="field"><label>Total completed bookings</label><div class="value" id="revCompleted">—</div></div>
+          <div class="field"><label>Total revenue</label><div class="value" id="revTotal">—</div></div>
+          <div class="field"><label>Commission rate</label><div class="value" id="revRate">—</div></div>
+          <div class="field"><label>Commission bookings</label><div class="value" id="revBookings">—</div></div>
+          <div class="field"><label>Net revenue</label><div class="value" id="revNet">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <section style="margin-top:32px;">
+      <div class="row mb-3" style="align-items:center;gap:12px;">
+        <h2 style="margin:0">Available Plans</h2>
+        <span class="muted" style="font-size:13px">Purchase a monthly plan and get bookings included at no commission until your limit.</span>
+      </div>
+      <div id="plansGrid" class="grid-2" style="gap:20px;">
+        <div class="plan-card" id="planStarter">
+          <div class="plan-title">Starter Plan</div>
+          <div class="plan-price">₹1,000</div>
+          <div class="plan-detail">500 bookings included per month</div>
+          <ul class="plan-features">
+            <li>No commission for first 500 completed bookings</li>
+            <li>5% commission after 500 bookings</li>
+            <li>Monthly validity (30 days)</li>
+          </ul>
+          <button class="btn btn-primary" onclick="purchasePlan('starter')">Buy Starter</button>
+        </div>
+        <div class="plan-card popular" id="planPro">
+          <div class="plan-title">Pro Plan</div>
+          <div class="plan-price">₹2,000</div>
+          <div class="plan-detail">1,200 bookings included per month</div>
+          <ul class="plan-features">
+            <li>No commission for first 1,200 completed bookings</li>
+            <li>5% commission after 1,200 bookings</li>
+            <li>Monthly validity (30 days)</li>
+            <li>Priority revenue reporting</li>
+          </ul>
+          <button class="btn btn-primary" onclick="purchasePlan('pro')">Buy Pro</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="historySection" style="margin-top:32px;">
+      <div class="row mb-3" style="align-items:center;gap:12px;">
+        <h2 style="margin:0">Subscription History</h2>
+        <span class="muted" style="font-size:13px">Recent subscriptions and past monthly plans.</span>
+      </div>
+      <div id="historyList" class="grid-1" style="gap:16px;"></div>
+    </section>
+  </main>
+</div>
+
+<script src="../js/script.js"></script>
+<script src="../js/api.js"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+  if (!API.requireAuth(true)) throw new Error('not owner');
+
+  async function loadSubscription() {
+    document.getElementById('revenueLoading').textContent = 'Loading revenue data…';
+    document.getElementById('revenueSummary').style.display = 'none';
+    document.getElementById('noActive').textContent = 'Loading subscription details…';
+    document.getElementById('activeSubscription').style.display = 'none';
+
+    const [subRes, revenueRes] = await Promise.all([
+      API.apiGet('/owner/subscription/'),
+      API.apiGet('/owner/subscription/revenue/'),
+    ]);
+
+    if (!subRes || !revenueRes) return;
+
+    const subData = subRes.ok ? await subRes.json() : null;
+    const revenueData = revenueRes.ok ? await revenueRes.json() : null;
+
+    if (subData && subData.active_subscription) {
+      const sub = subData.active_subscription;
+      document.getElementById('subPlan').textContent = sub.plan_display || sub.plan;
+      document.getElementById('subStatus').textContent = sub.status_display || sub.status;
+      document.getElementById('subPeriod').textContent = `${sub.start_date || '—'} → ${sub.end_date || '—'}`;
+      document.getElementById('subBooked').textContent = `${sub.bookings_used} / ${sub.bookings_total}`;
+      document.getElementById('subRemaining').textContent = `${sub.bookings_remaining} remaining`;
+      document.getElementById('subCommission').textContent = `₹${parseFloat(sub.commission_owed || 0).toFixed(2)}`;
+      document.getElementById('noActive').style.display = 'none';
+      document.getElementById('activeSubscription').style.display = 'block';
+    } else {
+      document.getElementById('noActive').textContent = 'No active subscription. Please choose a plan below to activate one.';
+      document.getElementById('activeSubscription').style.display = 'none';
+    }
+
+    if (subData && Array.isArray(subData.subscription_history)) {
+      const history = document.getElementById('historyList');
+      history.innerHTML = '';
+      if (subData.subscription_history.length === 0) {
+        history.innerHTML = '<div class="card muted" style="padding:20px;">No subscription history available.</div>';
+      } else {
+        subData.subscription_history.forEach(item => {
+          const card = document.createElement('div');
+          card.className = 'card';
+          card.style.padding = '18px';
+          card.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+              <div>
+                <div style="font-weight:700">${item.plan_display || item.plan}</div>
+                <div class="muted" style="font-size:13px">${item.start_date || '-'} → ${item.end_date || '-'}</div>
+              </div>
+              <div style="font-size:14px;color:var(--text-2);">${item.status_display || item.status}</div>
+            </div>
+            <div style="margin-top:12px;font-size:13px;line-height:1.6;">
+              ₹${parseFloat(item.amount_paid || 0).toFixed(2)} · Used ${item.bookings_used}/${item.bookings_total} · Commission ₹${parseFloat(item.commission_owed || 0).toFixed(2)}
+            </div>
+          `;
+          history.appendChild(card);
+        });
+      }
+    }
+
+    if (revenueData && revenueData.revenue) {
+      document.getElementById('revCompleted').textContent = revenueData.revenue.total_completed_bookings || 0;
+      document.getElementById('revTotal').textContent = `₹${parseFloat(revenueData.revenue.total_revenue || 0).toFixed(2)}`;
+      document.getElementById('revRate').textContent = revenueData.revenue.commission_rate || '5%';
+      document.getElementById('revBookings').textContent = revenueData.revenue.commission_bookings || 0;
+      document.getElementById('revNet').textContent = `₹${parseFloat(revenueData.revenue.net_revenue || 0).toFixed(2)}`;
+      document.getElementById('revenueSummary').style.display = 'block';
+      document.getElementById('revenueLoading').style.display = 'none';
+    } else {
+      document.getElementById('revenueLoading').textContent = 'Failed to load revenue data.';
+      document.getElementById('revenueSummary').style.display = 'none';
+    }
+  }
+
+  async function purchasePlan(plan) {
+    const confirmText = plan === 'starter'
+      ? 'Buy Starter plan for ₹1,000/month?'
+      : 'Buy Pro plan for ₹2,000/month?';
+    if (!window.confirm(confirmText)) return;
+
+    const button = document.querySelector(`button[onclick="purchasePlan('${plan}')"]`);
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Initializing payment…';
+    }
+
+    const res = await API.apiPost('/owner/subscription/purchase/', { plan });
+    if (!res) {
+      if (button) { button.disabled = false; button.textContent = plan === 'starter' ? 'Buy Starter' : 'Buy Pro'; }
+      return;
+    }
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast(data.detail || data.error || 'Failed to initialize payment.');
+      if (button) { button.disabled = false; button.textContent = plan === 'starter' ? 'Buy Starter' : 'Buy Pro'; }
+      return;
+    }
+
+    const options = {
+      key: data.key_id,
+      amount: data.amount,
+      currency: data.currency,
+      name: 'HapticEV Subscription',
+      description: plan === 'starter' ? 'Starter Plan - 500 bookings' : 'Pro Plan - 1,200 bookings',
+      order_id: data.order_id,
+      prefill: data.prefill || {},
+      notes: {
+        plan: plan,
+      },
+      theme: {
+        color: '#0f766e',
+      },
+      handler: async function (response) {
+        if (!response || !response.razorpay_payment_id || !response.razorpay_signature) {
+          toast('Payment failed or was not completed.');
+          if (button) { button.disabled = false; button.textContent = plan === 'starter' ? 'Buy Starter' : 'Buy Pro'; }
+          return;
+        }
+
+        try {
+          const verifyRes = await API.apiPost('/owner/subscription/purchase/verify/', {
+            razorpay_order_id: data.order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+            attempt_id: data.attempt_id,
+          });
+
+          if (!verifyRes) return;
+          const verifyData = await verifyRes.json().catch(() => ({}));
+          if (!verifyRes.ok) {
+            toast(verifyData.error || 'Subscription verification failed.');
+            if (button) { button.disabled = false; button.textContent = plan === 'starter' ? 'Buy Starter' : 'Buy Pro'; }
+            return;
+          }
+
+          toast(verifyData.message || 'Subscription activated successfully.');
+          loadSubscription();
+        } catch (err) {
+          toast('Payment verification error.');
+          if (button) { button.disabled = false; button.textContent = plan === 'starter' ? 'Buy Starter' : 'Buy Pro'; }
+        }
+      },
+      modal: {
+        ondismiss: function () {
+          toast('Subscription payment cancelled.');
+          if (button) { button.disabled = false; button.textContent = plan === 'starter' ? 'Buy Starter' : 'Buy Pro'; }
+        },
+      },
+    };
+
+    const rzp = new Razorpay(options);
+    rzp.open();
+
+    if (button) { button.textContent = 'Pay with Razorpay'; }
+  }
+
+  loadSubscription();
+</script>
+</body>
+</html>

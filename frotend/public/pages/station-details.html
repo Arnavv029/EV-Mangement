@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>HapticEV — Station Details</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/style.css"/>
+</head>
+<body>
+<nav class="navbar">
+  <a class="brand" href="landing.html"><span class="brand-logo">⚡</span>HapticEV</a>
+  <div class="nav-links">
+    <a href="home.html" class="active">Find Stations</a>
+    <a href="history.html">My Bookings</a>
+  </div>
+  <div class="nav-right">
+    <button class="btn btn-ghost" style="padding:6px 14px;font-size:13px" onclick="API.auth.clearSession();location.href='login.html'">Logout</button>
+  </div>
+</nav>
+
+<main class="container">
+  <!-- Hero -->
+  <div class="detail-grid">
+    <div>
+      <div class="hero-img" id="heroImg" style="background-image:linear-gradient(135deg,rgba(31,41,51,.55),rgba(0,127,122,.45)),url('../images/ev-hero.jpg');background-size:cover;background-position:center">
+        <span class="badge badge-mint" style="background:rgba(255,255,255,.9)">● Open Now</span>
+        <span class="badge badge-mint" id="chargerBadge" style="background:rgba(255,255,255,.9)">⚡ Loading…</span>
+      </div>
+    </div>
+    <div>
+      <div class="muted" style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--primary-2)">EV Charging Station</div>
+      <h1 id="title" style="font-size:36px;color:var(--primary-2);margin:6px 0 8px">Loading…</h1>
+      <div class="muted" id="addr">📍 …</div>
+      <div class="muted mt-1" id="phone" style="font-size:13px"></div>
+      <div id="stationRating" class="row" style="gap:10px;margin-top:10px;flex-wrap:wrap;align-items:center"></div>
+
+      <div class="stats-row" style="margin-top:16px">
+        <div class="stat"><div class="label">Total Slots</div><div class="value" id="totalSlots">—</div></div>
+        <div class="stat"><div class="label">Hours</div><div class="value">24/7</div></div>
+        <div class="stat"><div class="label">Charger</div><div class="value" id="chargerType" style="font-size:13px">—</div></div>
+      </div>
+
+      <div id="descBox" class="muted mt-2" style="font-size:13px;line-height:1.6"></div>
+    </div>
+  </div>
+
+  <!-- Physical bays overview -->
+  <div class="card mt-4">
+    <div class="row mb-2">
+      <div>
+        <h3>Charging Bays</h3>
+        <p class="muted" style="font-size:13px">Select a time slot below to book one of these bays.</p>
+      </div>
+      <span class="spacer"></span>
+      <div class="row" style="gap:14px;font-size:12px">
+        <span class="row" style="gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:var(--primary)"></span>Available</span>
+        <span class="row" style="gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:var(--danger)"></span>Occupied</span>
+      </div>
+    </div>
+    <div class="slot-grid" id="slotGrid"></div>
+  </div>
+
+  <!-- Date + Time slot picker -->
+  <div class="card mt-3">
+    <div class="grid-2">
+      <div>
+        <h3 class="mb-2">Select Date</h3>
+        <div class="calendar">
+          <div class="cal-head">
+            <button class="icon-btn" id="prevMonth">‹</button>
+            <span id="calTitle">—</span>
+            <button class="icon-btn" id="nextMonth">›</button>
+          </div>
+          <div class="cal-grid" id="calGrid"></div>
+        </div>
+      </div>
+      <div>
+        <h3 class="mb-2">Available Time Slots</h3>
+        <div id="slotsLoading" class="muted" style="font-size:13px;padding:8px 0">Select a date to see slots…</div>
+        <div class="time-grid" id="timeGrid"></div>
+        <button class="btn btn-primary btn-block mt-3" id="proceedBtn" onclick="proceed()" disabled>Select a slot to continue →</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mt-3">
+    <h3 class="mb-2">Visitor reviews</h3>
+    <div id="reviewsList" class="muted" style="font-size:13px">Loading reviews…</div>
+  </div>
+</main>
+
+<footer class="footer">© 2026 HapticEV</footer>
+<script src="../js/script.js"></script>
+<script src="../js/api.js"></script>
+<script>
+  if (!API.requireAuth()) throw new Error("not authenticated");
+
+  const params     = new URLSearchParams(location.search);
+  const stationId  = params.get('id');
+  if (!stationId) { location.href = 'home.html'; }
+
+  let selectedSlotId   = null;
+  let selectedSlotData = null;
+  let station          = null;
+
+  // ── Calendar state ───────────────────────────────────────────────────────
+  const today      = new Date();
+  let calYear      = today.getFullYear();
+  let calMonth     = today.getMonth();
+  let selectedDate = toISO(today);
+
+  function toISO(d) {
+    return d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+  }
+
+  const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  function ratingStarsHtml(avg, count) {
+    const a = parseFloat(avg || 0);
+    const c = count || 0;
+    const filled = Math.round(a);
+    let s = '';
+    for (let i = 1; i <= 5; i++) s += `<span style="color:${i <= filled ? '#fbbf24' : 'var(--border)'}">★</span>`;
+    return `${s}<span class="muted" style="font-size:13px;margin-left:8px">${a.toFixed(1)} · ${c} review${c !== 1 ? 's' : ''}</span>`;
+  }
+
+  function escapeHtml(t) {
+    const d = document.createElement('div');
+    d.textContent = t;
+    return d.innerHTML;
+  }
+
+  function buildCalendar() {
+    const grid = document.getElementById('calGrid');
+    grid.innerHTML = '';
+    document.getElementById('calTitle').textContent = MONTH_NAMES[calMonth] + ' ' + calYear;
+
+    ['S','M','T','W','T','F','S'].forEach(d => {
+      const el = document.createElement('div');
+      el.className = 'dow'; el.textContent = d; grid.appendChild(el);
+    });
+
+    const firstDay = new Date(calYear, calMonth, 1).getDay();
+    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+
+    // Blank cells
+    for (let i = 0; i < firstDay; i++) {
+      const el = document.createElement('div'); grid.appendChild(el);
+    }
+
+    const todayISO = toISO(today);
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateISO = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const isPast  = dateISO < todayISO;
+      const el = document.createElement('div');
+      el.className = 'day' + (isPast ? ' muted' : '') + (dateISO === selectedDate ? ' active' : '');
+      el.textContent = d;
+      if (!isPast) {
+        el.onclick = () => {
+          selectedDate = dateISO;
+          selectedSlotId = null;
+          selectedSlotData = null;
+          document.getElementById('proceedBtn').disabled = true;
+          document.getElementById('proceedBtn').textContent = 'Select a slot to continue →';
+          buildCalendar();
+          loadSlots(dateISO);
+        };
+      }
+      grid.appendChild(el);
+    }
+  }
+
+  document.getElementById('prevMonth').onclick = () => {
+    calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } buildCalendar();
+  };
+  document.getElementById('nextMonth').onclick = () => {
+    calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } buildCalendar();
+  };
+
+  // ── Load station details ─────────────────────────────────────────────────
+  async function loadStation() {
+    try {
+      const res = await API.apiGet(`/stations/${stationId}/`);
+      if (!res) return;
+      if (!res.ok) { toast('Station not found'); setTimeout(() => location.href = 'home.html', 1000); return; }
+      station = await res.json();
+
+      document.getElementById('title').textContent = station.name;
+      document.getElementById('addr').textContent  = '📍 ' + station.location_text;
+      document.title = 'HapticEV — ' + station.name;
+      if (station.phone) document.getElementById('phone').textContent = '📞 ' + station.phone;
+      if (station.description) document.getElementById('descBox').textContent = station.description;
+      document.getElementById('totalSlots').textContent = station.total_slots;
+      document.getElementById('chargerType').textContent = station.charger_type || '—';
+      document.getElementById('chargerBadge').textContent = '⚡ ' + (station.charger_type || 'Standard');
+
+      document.getElementById('stationRating').innerHTML = ratingStarsHtml(station.avg_rating, station.review_count);
+      loadReviews();
+
+      if (station.image_url) {
+        document.getElementById('heroImg').style.backgroundImage =
+          `linear-gradient(135deg,rgba(31,41,51,.45),rgba(0,127,122,.35)),url('${station.image_url}')`;
+      }
+
+      // Build physical bay grid (cosmetic — shows total_slots as charging symbols)
+      const sg = document.getElementById('slotGrid');
+      for (let i = 1; i <= station.total_slots; i++) {
+        const el = document.createElement('div');
+        el.className = 'slot available';
+        el.innerHTML = `<div class="slot-num">Bay ${i}</div><div class="slot-icon">⚡</div><div class="slot-status">Available</div>`;
+        sg.appendChild(el);
+      }
+
+    } catch (err) {
+      toast('Failed to load station details');
+    }
+  }
+
+  async function loadReviews() {
+    const box = document.getElementById('reviewsList');
+    try {
+      const res = await API.apiGet(`/stations/${stationId}/reviews/?limit=20`);
+      if (!res || !res.ok) {
+        box.textContent = 'Could not load reviews.';
+        return;
+      }
+      const data = await res.json();
+      const list = data.reviews || [];
+      if (list.length === 0) {
+        box.innerHTML = '<span class="muted">No reviews yet. Complete a session and leave the first review.</span>';
+        return;
+      }
+      box.innerHTML = list
+        .map(
+          (r) => `
+        <div style="border-bottom:1px solid var(--border);padding:12px 0">
+          <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+            <b>${escapeHtml(r.user_display)}</b>
+            <span style="color:#fbbf24;font-size:13px">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span>
+          </div>
+          <div class="muted" style="font-size:11px;margin-top:4px">${new Date(r.created_at).toLocaleString()}</div>
+          ${r.comment ? `<div style="margin-top:8px;font-size:13px">${escapeHtml(r.comment)}</div>` : ''}
+        </div>`,
+        )
+        .join('');
+    } catch (e) {
+      box.textContent = 'Network error loading reviews.';
+    }
+  }
+
+  // ── Load slots for selected date ─────────────────────────────────────────
+  async function loadSlots(date) {
+    const loading = document.getElementById('slotsLoading');
+    const tg      = document.getElementById('timeGrid');
+    tg.innerHTML  = '';
+    loading.style.display = 'block';
+    loading.textContent   = 'Loading slots…';
+    selectedSlotId   = null;
+    selectedSlotData = null;
+
+    try {
+      const res = await API.apiGet(`/stations/${stationId}/slots/?date=${date}`);
+      if (!res) return;
+      const data = await res.json();
+      const slots = data.slots || [];
+      loading.style.display = 'none';
+
+      if (slots.length === 0) {
+        tg.innerHTML = '<div class="muted" style="font-size:13px;padding:8px 0">No slots available for this date. The owner needs to create slots.</div>';
+        return;
+      }
+
+      slots.forEach(slot => {
+        const btn = document.createElement('button');
+        btn.className = 'time-slot' + (slot.is_full ? ' booked' : '');
+        const start = slot.start_time.substring(0,5);
+        const end   = slot.end_time.substring(0,5);
+        btn.innerHTML = `${start} – ${end}<br><small style="font-size:10px;opacity:.7">${slot.is_full ? 'Full' : slot.available_spots + ' spot' + (slot.available_spots !== 1 ? 's' : '') + ' left'}</small>`;
+        if (!slot.is_full) {
+          btn.onclick = () => {
+            tg.querySelectorAll('.time-slot').forEach(x => x.classList.remove('active'));
+            btn.classList.add('active');
+            selectedSlotId   = slot.id;
+            selectedSlotData = slot;
+            document.getElementById('proceedBtn').disabled = false;
+            document.getElementById('proceedBtn').textContent = `Book ${start}–${end} →`;
+          };
+        }
+        tg.appendChild(btn);
+      });
+    } catch (err) {
+      loading.textContent = 'Failed to load slots.';
+    }
+  }
+
+  // ── Proceed to booking ───────────────────────────────────────────────────
+  function proceed() {
+    if (!selectedSlotId || !station) return;
+    sessionStorage.setItem('hev_booking_pending', JSON.stringify({
+      stationId:    station.id,
+      stationName:  station.name,
+      imageUrl:     station.image_url || '',
+      slotId:       selectedSlotId,
+      slotDate:     selectedSlotData.date,
+      slotStart:    selectedSlotData.start_time.substring(0,5),
+      slotEnd:      selectedSlotData.end_time.substring(0,5),
+      pricePerHour: station.price_per_hour || null,
+    }));
+    location.href = 'booking.html';
+  }
+
+  // ── Init ─────────────────────────────────────────────────────────────────
+  buildCalendar();
+  loadStation();
+  loadSlots(selectedDate);
+</script>
+</body>
+</html>

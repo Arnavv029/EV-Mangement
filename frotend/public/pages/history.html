@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>HapticEV — My Bookings</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/style.css"/>
+<style>
+  .cancel-btn   { padding:6px 14px;font-size:12px;font-weight:600;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.35);color:#ef4444;border-radius:8px;cursor:pointer;transition:all .18s; }
+  .cancel-btn:hover { background:rgba(239,68,68,.2); }
+
+  /* Modal */
+  .modal-overlay  { position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);z-index:1000;display:none;align-items:center;justify-content:center; }
+  .modal-overlay.show { display:flex; }
+  .modal-box      { background:var(--card);border:1px solid var(--border);border-radius:16px;padding:30px;max-width:430px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.5); }
+  .refund-big     { font-size:42px;font-weight:800;color:var(--primary-2);text-align:center;margin:14px 0 4px; }
+  .refund-sub     { text-align:center;font-size:13px;color:var(--text-2);margin-bottom:18px; }
+  .refund-table   { background:rgba(255,255,255,.04);border-radius:8px;padding:12px;font-size:12px;color:var(--text-2);margin-bottom:18px; }
+  .refund-table-row { display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06); }
+  .refund-table-row:last-child { border-bottom:none;padding-top:8px;margin-top:4px;font-weight:700;font-size:13px;color:var(--primary-2); }
+
+  /* Refund badge on cancelled cards */
+  .refund-badge   { font-size:11px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:#f87171;padding:3px 10px;border-radius:6px; }
+  .txn-mini       { font-size:10px;font-family:monospace;color:var(--text-2);margin-top:3px; }
+
+  .review-modal-box { max-width:420px; }
+  .star-row         { display:flex;gap:6px;margin:14px 0;justify-content:center;flex-wrap:wrap; }
+  .star-btn         { font-size:26px;line-height:1;padding:4px 6px;cursor:pointer;border:none;background:transparent;color:rgba(251,191,36,.35);transition:color .15s,transform .1s; }
+  .star-btn.active  { color:#fbbf24; transform:scale(1.08); }
+  .star-btn:hover   { color:#fcd34d; }
+</style>
+</head>
+<body>
+<nav class="navbar">
+  <a class="brand" href="landing.html"><span class="brand-logo">⚡</span>HapticEV</a>
+  <div class="nav-links">
+    <a href="home.html">Find Stations</a>
+    <a href="history.html" class="active">My Bookings</a>
+  </div>
+  <div class="nav-right">
+    <button class="icon-btn" onclick="loadBookings()" title="Refresh">🔄</button>
+    <button class="btn btn-ghost" style="padding:6px 14px;font-size:13px" onclick="API.auth.clearSession();location.href='login.html'">Logout</button>
+  </div>
+</nav>
+
+<main class="container">
+  <h1 style="font-size:42px;margin-top:20px">My Bookings</h1>
+  <p class="muted">All your past and upcoming charging sessions</p>
+
+  <div class="tabs-line">
+    <button class="tab-line active" onclick="filterTab('all',this)">All</button>
+    <button class="tab-line"        onclick="filterTab('pending',this)">Pending</button>
+    <button class="tab-line"        onclick="filterTab('confirmed',this)">Confirmed</button>
+    <button class="tab-line"        onclick="filterTab('completed',this)">Completed</button>
+    <button class="tab-line"        onclick="filterTab('cancelled',this)">Cancelled</button>
+    <button class="tab-line"        onclick="filterTab('rejected',this)">Rejected</button>
+  </div>
+
+  <div id="loadingMsg" class="muted" style="padding:32px;text-align:center">Loading your bookings…</div>
+  <div class="history-grid" id="hgrid" style="display:none"></div>
+  <div id="emptyMsg" style="display:none;padding:48px;text-align:center">
+    <div style="font-size:48px;margin-bottom:12px">📋</div>
+    <div style="font-weight:600;font-size:18px;color:var(--primary-2)">No bookings here</div>
+    <p class="muted mt-1">Find a station and book your first charging slot.</p>
+    <a href="home.html" class="btn btn-primary mt-3">Find Stations →</a>
+  </div>
+</main>
+
+<!-- ── Cancel Modal ──────────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="cancelModal">
+  <div class="modal-box">
+    <div style="font-size:18px;font-weight:700;margin-bottom:6px">Cancel Booking?</div>
+    <p class="muted" style="font-size:12px;margin-bottom:16px">Your refund is calculated based on when you cancel relative to the slot start time.</p>
+
+    <div id="mLoading" class="muted text-center" style="padding:20px 0;font-size:13px">Calculating refund…</div>
+
+    <div id="mRefundInfo" style="display:none">
+      <div class="refund-big" id="mRefundAmt">₹0</div>
+      <div class="refund-sub" id="mReason">—</div>
+      <div class="refund-table">
+        <div class="refund-table-row"><span>Amount Paid</span><span id="mPaid">—</span></div>
+        <div class="refund-table-row"><span>Refund %</span><span id="mPct" style="color:var(--primary-2)">—</span></div>
+        <div class="refund-table-row"><span>Refund Amount</span><span id="mRefund">—</span></div>
+      </div>
+
+      <!-- Policy reminder -->
+      <div style="font-size:11px;color:var(--text-2);background:rgba(255,255,255,.03);border-radius:8px;padding:10px 12px;margin-bottom:16px;line-height:1.7">
+        <b style="color:#f59e0b">Policy:</b>
+        30+ min before → 100% · 0–30 min before → 70% · First 30 min of session → 50% · After 30 min → 0%
+      </div>
+    </div>
+
+    <div class="row" style="gap:12px">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal()">Keep Booking</button>
+      <button class="btn" id="doCancelBtn" style="flex:1;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);color:#ef4444;display:none" onclick="doCancel()">
+        Yes, Cancel It
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Review modal -->
+<div class="modal-overlay" id="reviewModal">
+  <div class="modal-box review-modal-box">
+    <div style="font-size:18px;font-weight:700;margin-bottom:6px;color:var(--primary-2)">Rate your charging session</div>
+    <p class="muted" style="font-size:12px;margin-bottom:8px">Rate after your slot has ended or the station marks your session complete. One review per booking.</p>
+    <div class="star-row" id="reviewStarRow"></div>
+    <div class="field">
+      <label>Comment (optional)</label>
+      <textarea class="input" id="reviewComment" rows="3" placeholder="How was the station, wait time, staff…"></textarea>
+    </div>
+    <div class="row" style="gap:10px;margin-top:16px">
+      <button type="button" class="btn btn-ghost" style="flex:1" onclick="closeReviewModal()">Cancel</button>
+      <button type="button" class="btn btn-primary" style="flex:1" id="reviewSubmitBtn" onclick="submitReview()">Submit review</button>
+    </div>
+  </div>
+</div>
+
+<footer class="footer">© 2026 HapticEV</footer>
+<script src="../js/script.js"></script>
+<script src="../js/api.js"></script>
+<script>
+  if (!API.requireAuth()) throw new Error("not authenticated");
+
+  let allBookings = [];
+  let activeTab   = 'all';
+  let cancelingId = null;
+
+  const statusBadge = {
+    pending:   'badge-warn',
+    confirmed: 'badge-mint',
+    rejected:  'badge-danger',
+    completed: 'badge-gray',
+    cancelled: 'badge-danger',
+  };
+  const statusLabel = {
+    pending:   '⏳ Pending',
+    confirmed: '✅ Confirmed',
+    rejected:  '❌ Rejected',
+    completed: '✔ Completed',
+    cancelled: '🚫 Cancelled',
+  };
+  const methodLabel = {
+    upi:         '📱 UPI',
+    debit_card:  '💳 Card',
+    net_banking: '🏦 Net Banking',
+  };
+
+  function renderBookings(list) {
+    const hg = document.getElementById('hgrid');
+    hg.innerHTML = '';
+    if (list.length === 0) {
+      hg.style.display = 'none';
+      document.getElementById('emptyMsg').style.display = 'block';
+      return;
+    }
+    document.getElementById('emptyMsg').style.display = 'none';
+    hg.style.display = '';
+
+    list.forEach(b => {
+      const card      = document.createElement('div');
+      card.className  = 'card history-card card-hover';
+      const badge     = statusBadge[b.status] || 'badge-gray';
+      const label     = statusLabel[b.status]  || b.status;
+      const imgStyle  = b.station?.image_url
+        ? `background-image:linear-gradient(135deg,rgba(31,41,51,.55),rgba(0,127,122,.45)),url('${b.station.image_url}');background-size:cover;background-position:center`
+        : `background-image:linear-gradient(135deg,rgba(31,41,51,.55),rgba(0,127,122,.45)),url('../images/ev-hero.jpg');background-size:cover;background-position:center`;
+      const slotDate  = b.slot?.date || '—';
+      const slotStart = b.slot?.start_time?.substring(0,5) || '';
+      const slotEnd   = b.slot?.end_time?.substring(0,5)   || '';
+      const priceStr  = b.amount_paid ? `₹${parseFloat(b.amount_paid).toFixed(2)}` : '';
+      const method    = methodLabel[b.payment_method] || '';
+
+      // Footer row — refund info for cancelled, payment for others
+      let footerRight = '';
+      if (b.status === 'cancelled' && b.refund_amount !== null && b.refund_amount !== undefined) {
+        footerRight = `<span class="refund-badge">↩ Refund ₹${parseFloat(b.refund_amount).toFixed(2)} (${b.refund_percentage}%)</span>`;
+      } else if (priceStr) {
+        footerRight = `<span style="font-size:12px;color:var(--primary-2);font-weight:700">${priceStr}</span>`;
+      }
+
+      // Cancel button — only for active bookings
+      const canCancel = ['pending','confirmed'].includes(b.status);
+      const cancelBtn = canCancel
+        ? `<button class="cancel-btn" onclick="event.stopPropagation();openCancelModal(${b.id})">Cancel</button>`
+        : '';
+
+      const canReview =
+        typeof b.can_review === 'boolean'
+          ? b.can_review
+          : String(b.status) === 'completed' && !b.has_review;
+      const rateBtn = canReview
+        ? `<button class="btn btn-primary" style="padding:8px 14px;font-size:13px;font-weight:600" onclick="event.stopPropagation();openReviewModal(${b.id})">⭐ Rate & review</button>`
+        : '';
+
+      const reviewedBadge =
+        b.has_review && (b.status === 'confirmed' || b.status === 'completed')
+          ? `<span class="badge badge-mint" style="font-size:10px;margin-left:6px">Reviewed</span>`
+          : '';
+
+      card.onclick = () => {
+        sessionStorage.setItem('hev_last_booking', JSON.stringify(b));
+        location.href = 'confirmation.html';
+      };
+
+      card.innerHTML = `
+        <div class="history-img" style="${imgStyle}">
+          <span class="badge ${badge}">${label}</span>
+        </div>
+        <div class="history-body">
+          <div class="muted" style="font-size:10px;font-weight:600;word-break:break-all">ID: ${b.booking_id||'—'}</div>
+          <div class="row" style="align-items:center;flex-wrap:wrap;gap:4px"><h4 style="color:var(--primary-2);margin:0">${b.station?.name||'—'}</h4>${reviewedBadge}</div>
+          <div class="history-meta">📍 ${b.station?.location_text||''}</div>
+          <div class="history-meta">📅 ${slotDate} &nbsp;⏰ ${slotStart} – ${slotEnd}</div>
+          ${b.transaction_id ? `<div class="txn-mini">TXN: ${b.transaction_id}</div>` : ''}
+          <div class="history-foot" style="margin-top:8px">
+            <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap">
+              ${method ? `<span style="font-size:11px;color:var(--text-2)">${method}</span>` : ''}
+              ${footerRight}
+            </div>
+            <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">
+              ${rateBtn}
+              ${cancelBtn}
+            </div>
+          </div>
+        </div>`;
+      hg.appendChild(card);
+    });
+  }
+
+  function filterTab(tab, btn) {
+    activeTab = tab;
+    document.querySelectorAll('.tab-line').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    const f = tab === 'all' ? allBookings : allBookings.filter(b => b.status === tab);
+    renderBookings(f);
+  }
+
+  async function loadBookings() {
+    document.getElementById('loadingMsg').style.display = 'block';
+    document.getElementById('hgrid').style.display      = 'none';
+    document.getElementById('emptyMsg').style.display   = 'none';
+    try {
+      const res = await API.apiGet('/bookings/history/');
+      if (!res) return;
+      if (!res.ok) { toast('Failed to load bookings'); return; }
+      allBookings = await res.json();
+      document.getElementById('loadingMsg').style.display = 'none';
+      const f = activeTab === 'all' ? allBookings : allBookings.filter(b => b.status === activeTab);
+      renderBookings(f);
+    } catch {
+      document.getElementById('loadingMsg').textContent = 'Network error. Is the backend running?';
+    }
+  }
+
+  // ── Cancel Modal ─────────────────────────────────────────────────────────
+  async function openCancelModal(bookingId) {
+    cancelingId = bookingId;
+    document.getElementById('cancelModal').classList.add('show');
+    document.getElementById('mLoading').style.display     = 'block';
+    document.getElementById('mRefundInfo').style.display  = 'none';
+    document.getElementById('doCancelBtn').style.display  = 'none';
+
+    try {
+      const res  = await API.apiGet(`/bookings/${bookingId}/refund-preview/`);
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || 'Cannot cancel.'); closeModal(); return; }
+
+      document.getElementById('mRefundAmt').textContent = `₹${parseFloat(data.refund_amount).toFixed(2)}`;
+      document.getElementById('mReason').textContent    = data.reason;
+      document.getElementById('mPaid').textContent      = `₹${parseFloat(data.amount_paid).toFixed(2)}`;
+      document.getElementById('mPct').textContent       = data.refund_percentage + '%';
+      document.getElementById('mRefund').textContent    = `₹${parseFloat(data.refund_amount).toFixed(2)}`;
+
+      document.getElementById('mLoading').style.display    = 'none';
+      document.getElementById('mRefundInfo').style.display  = 'block';
+      document.getElementById('doCancelBtn').style.display  = 'block';
+    } catch {
+      toast('Network error.'); closeModal();
+    }
+  }
+
+  function closeModal() {
+    document.getElementById('cancelModal').classList.remove('show');
+    cancelingId = null;
+  }
+
+  async function doCancel() {
+    if (!cancelingId) return;
+    const btn = document.getElementById('doCancelBtn');
+    btn.disabled    = true;
+    btn.textContent = 'Cancelling…';
+
+    try {
+      const res  = await API.apiPost(`/bookings/${cancelingId}/cancel/`, {});
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || 'Cancellation failed.'); btn.disabled = false; btn.textContent = 'Yes, Cancel It'; return; }
+
+      closeModal();
+      toast(`Cancelled! Refund ₹${parseFloat(data.refund_amount).toFixed(2)} will be credited in 3–5 business days.`);
+      await loadBookings();   // Refresh list
+    } catch {
+      toast('Network error.');
+      btn.disabled    = false;
+      btn.textContent = 'Yes, Cancel It';
+    }
+  }
+
+  // Close modal on outside click
+  document.getElementById('cancelModal').addEventListener('click', e => { if (e.target === document.getElementById('cancelModal')) closeModal(); });
+
+  let reviewBookingId = null;
+  let reviewStars = 0;
+
+  function buildStarRow() {
+    const row = document.getElementById('reviewStarRow');
+    row.innerHTML = '';
+    for (let i = 1; i <= 5; i++) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'star-btn' + (i <= reviewStars ? ' active' : '');
+      b.textContent = '★';
+      b.dataset.n = String(i);
+      b.onclick = () => {
+        reviewStars = i;
+        buildStarRow();
+      };
+      row.appendChild(b);
+    }
+  }
+
+  function openReviewModal(bookingId) {
+    reviewBookingId = bookingId;
+    reviewStars = 0;
+    document.getElementById('reviewComment').value = '';
+    buildStarRow();
+    document.getElementById('reviewModal').classList.add('show');
+  }
+
+  function closeReviewModal() {
+    document.getElementById('reviewModal').classList.remove('show');
+    reviewBookingId = null;
+  }
+
+  document.getElementById('reviewModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('reviewModal')) closeReviewModal();
+  });
+
+  async function submitReview() {
+    if (!reviewBookingId) return;
+    if (!reviewStars) {
+      toast('Please tap the stars to choose a rating (1–5).');
+      return;
+    }
+    const btn = document.getElementById('reviewSubmitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    try {
+      const res = await API.apiPost(`/bookings/${reviewBookingId}/review/`, {
+        rating: reviewStars,
+        comment: document.getElementById('reviewComment').value.trim(),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.error || 'Could not save review.');
+        btn.disabled = false;
+        btn.textContent = 'Submit review';
+        return;
+      }
+      toast('Thanks for your feedback! ⚡');
+      closeReviewModal();
+      await loadBookings();
+    } catch {
+      toast('Network error.');
+      btn.disabled = false;
+      btn.textContent = 'Submit review';
+    }
+  }
+
+  loadBookings();
+</script>
+</body>
+</html>
